@@ -1,4 +1,4 @@
-import pygame
+import pygame, random
 
 pygame.init()
 
@@ -105,7 +105,7 @@ PACMAN_SPRITE_IDX = 0
 PACMAN_SKIP_FRAMES = 0
 
 # pacman's normal speed table
-PACMAN_SPEED_NORMAL = [1.00]
+PACMAN_SPEED_NORMAL = [0.80]
 PACMAN_SPEED_NORMAL.extend([0.90] * 3)
 PACMAN_SPEED_NORMAL.extend([1.00] * 16)
 PACMAN_SPEED_NORMAL.extend([0.90] * 236)
@@ -154,7 +154,33 @@ ITEM = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
 ITEM.x = 13 * TILE_SIZE
 ITEM.y = 20 * TILE_SIZE - HALF_TILE
 ITEM_LIST = []
-for i in range(max(0, LEVEL - 7), LEVEL + 1, 1): ITEM_LIST.append(ITEMS[i])
+for i in range(max(0, LEVEL - 6), LEVEL + 1, 1): ITEM_LIST.append(ITEMS[i])
+
+# ghosts
+G = []
+for i in range(4):
+    G.append(pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE))
+G_ROW = [14, 14, 14, 14]
+G_COL = [13, 15, 11, 17]
+G_OFF_X = [4, 4, 4, 4]
+G_OFF_Y = [0, 0, 0, 0]
+G_DX = [-1, -1, 1, 1]
+G_DY = [0, 0, 0, 0]
+
+# ghost normal speed table
+G_SPEED_NORMAL = [0.75, 0.85, 0.85, 0.85]
+G_SPEED_NORMAL.extend([0.95] * 252)
+
+# ghost speed table when entering or leaving a tunnel
+G_SPEED_TUNNEL = [0.40, 0.45, 0.45, 0.45]
+G_SPEED_TUNNEL.extend([0.50] * 252)
+
+# ghost speed table when in frightened mode
+G_SPEED_FRIGHT = [0.50, 0.55, 0.55, 0.55]
+G_SPEED_FRIGHT.extend([0.60] * 252)
+
+# ghost's start speed
+G_SPEED = [G_SPEED_NORMAL[LEVEL] * MAX_SPEED] * 4
 
 # screen
 SCREEN_WIDTH = MAZE_WIDTH * TILE_SIZE
@@ -327,8 +353,54 @@ def main():
                 else:
                     PACMAN_SKIP_FRAMES -= 1
                 
-                # reduce speed unit from the fractional accumulator
+                # subtract speed unit from the fractional accumulator
                 ACC -= SPEED_UNIT
+
+
+        # move ghosts
+        for i in range(len(G)):
+
+            # when ghost in inside the maze
+            if G_COL[i] >= 0 and G_COL[i] < MAZE_WIDTH - 1:
+
+                # if ghost is on a junction point
+                if G_OFF_X[i] == 0 and G_OFF_Y[i] == 0:
+
+                    # create a list for adding the free paths where the ghost can turn
+                    can_turn = []
+
+                    # look around, add all free path directions to the list
+                    if not wall_collision(G_ROW[i] - 1, G_COL[i]) and not G_DY[i] == 1: can_turn.append([0, -1])
+                    if not wall_collision(G_ROW[i] + 1, G_COL[i]) and not G_DY[i] == -1: can_turn.append([0, 1])
+                    if not wall_collision(G_ROW[i], G_COL[i] - 1) and not G_DX[i] == 1: can_turn.append([-1, 0])
+                    if not wall_collision(G_ROW[i], G_COL[i] + 1) and not G_DX[i] == -1: can_turn.append([1, 0])
+
+                    # pick a random direction
+                    dir = random.choice(can_turn)
+
+                    # set the new direction
+                    G_DX[i] = dir[0]
+                    G_DY[i] = dir[1]
+
+                # move ghost
+                G_OFF_X[i] += G_DX[i]
+                G_OFF_Y[i] += G_DY[i]
+                if G_OFF_X[i] == 8:
+                    G_OFF_X[i] = 0
+                    G_COL[i] += 1
+                elif G_OFF_X[i] == -1:
+                    G_OFF_X[i] = 7
+                    G_COL[i] -= 1
+                elif G_OFF_Y[i] == 8:
+                    G_OFF_Y[i] = 0
+                    G_ROW[i] += 1
+                elif G_OFF_Y[i] == -1:
+                    G_OFF_Y[i] = 7
+                    G_ROW[i] -= 1
+
+                # update ghost position
+                G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
+                G[i].y = G_ROW[i] * TILE_SIZE + G_OFF_Y[i] * SPEED_UNIT
 
         # draw maze
         for i, row in enumerate(MAZE):
@@ -372,6 +444,15 @@ def main():
         SCREEN.blit(SPRITES[PACMAN_ANIM[FACE][PACMAN_SPRITE_IDX]], (PACMAN.x - HALF_TILE, PACMAN.y - HALF_TILE))
         #pygame.draw.rect(SCREEN, "#FFFF00", PACMAN, 1)
 
+        # draw ghosts
+        for i in range(len(G)):
+            match i:
+                case 0: color = "red"
+                case 1: color = "pink"
+                case 2: color = "cyan"
+                case 3: color = "orange"
+            pygame.draw.rect(SCREEN, color, G[i], 1)
+
         # draw score
         if SCORE_BLINK_COUNTER < SCORE_BLINK_HALF_TIME: type("1UP", 0, 3)
         if SCORE == 0:
@@ -383,13 +464,13 @@ def main():
         type("HIGH SCORE", 0, 9)
         if HIGH_SCORE > 0: type(str(HIGH_SCORE).rjust(8, " "), 1, 9)
 
-        # draw remaining lives
-        for life, col in enumerate(range(2, 7, 2)):
+        # draw remaining lives (COLS: 2, 4, 6, 8, 10)
+        for life, col in enumerate(range(2, 11, 2)):
             if life < LIVES - 1:
                 SCREEN.blit(SPRITES[15], (col * TILE_SIZE, 34 * TILE_SIZE))
 
-        # draw bonus items on bottom
-        for item, col in enumerate(range(24, 8, -2)):
+        # draw bonus items on bottom (COLS: 24, 22, 20, 18, 16, 14, 12)
+        for item, col in enumerate(range(24, 11, -2)):
             if item < len(ITEM_LIST):
                 SCREEN.blit(SPRITES[ITEM_LIST[item]], (col * TILE_SIZE, 34 * TILE_SIZE))
         
