@@ -166,6 +166,35 @@ G_OFF_X = [4, 4, 4, 4]
 G_OFF_Y = [0, 0, 0, 0]
 G_DX = [-1, -1, 1, 1]
 G_DY = [0, 0, 0, 0]
+G_ACC = [0, 0, 0, 0]
+G_ANIM = [
+    [   # blinky
+        [45, 45, 45, 45, 45, 45, 45, 45, 46, 46, 46, 46, 46, 46, 46, 46], # up
+        [47, 47, 47, 47, 47, 47, 47, 47, 48, 48, 48, 48, 48, 48, 48, 48], # down
+        [43, 43, 43, 43, 43, 43, 43, 43, 44, 44, 44, 44, 44, 44, 44, 44], # left
+        [41, 41, 41, 41, 41, 41, 41, 41, 42, 42, 42, 42, 42, 42, 42, 42]  # right
+    ],
+    [   # pinky
+        [57, 57, 57, 57, 57, 57, 57, 57, 58, 58, 58, 58, 58, 58, 58, 58],  # up
+        [59, 59, 59, 59, 59, 59, 59, 59, 60, 60, 60, 60, 60, 60, 60, 60],  # down
+        [55, 55, 55, 55, 55, 55, 55, 55, 56, 56, 56, 56, 56, 56, 56, 56],  # left
+        [53, 53, 53, 53, 53, 53, 53, 53, 54, 54, 54, 54, 54, 54, 54, 54]   # right
+    ],
+    [   # inky
+        [69, 69, 69, 69, 69, 69, 69, 69, 70, 70, 70, 70, 70, 70, 70, 70],  # up
+        [71, 71, 71, 71, 71, 71, 71, 71, 72, 72, 72, 72, 72, 72, 72, 72],  # down
+        [67, 67, 67, 67, 67, 67, 67, 67, 68, 68, 68, 68, 68, 68, 68, 68],  # left
+        [65, 65, 65, 65, 65, 65, 65, 65, 66, 66, 66, 66, 66, 66, 66, 66]   # right
+    ],
+    [   # clyde
+        [82, 82, 82, 82, 82, 82, 82, 82, 83, 83, 83, 83, 83, 83, 83, 83],  # up
+        [84, 84, 84, 84, 84, 84, 84, 84, 85, 85, 85, 85, 85, 85, 85, 85],  # down
+        [80, 80, 80, 80, 80, 80, 80, 80, 81, 81, 81, 81, 81, 81, 81, 81],  # left
+        [78, 78, 78, 78, 78, 78, 78, 78, 79, 79, 79, 79, 79, 79, 79, 79]   # right
+    ]
+]
+G_FACE = [LEFT, LEFT, RIGHT, RIGHT]
+G_SPRITE_IDX = [0, 0, 0, 0]
 
 # ghost normal speed table
 G_SPEED_NORMAL = [0.75, 0.85, 0.85, 0.85]
@@ -216,6 +245,7 @@ def main():
     global PACMAN_SPRITE_IDX, FACE, SCORE_BLINK_COUNTER, NRG_BLINK_COUNTER
     global PELLETS, ITEM_VISIBLE, ITEM_DISPLAY_TIME, ITEM_POINTS_TIME
     global PACMAN_SKIP_FRAMES, ACC
+    global G, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_ACC, G_SPEED, G_SPRITE_IDX, G_FACE
     
     while RUNNING:
         # poll for events
@@ -243,144 +273,157 @@ def main():
             keys = pygame.key.get_pressed()
 
             # when pacman is inside the maze
-            if ROW >= 0 and ROW < MAZE_HEIGHT - 1:
-                if COL >= 0 and COL < MAZE_WIDTH - 1:
+            if COL >= 0 and COL < MAZE_WIDTH - 1:
 
-                    # early turning
-                    if OFFSET_X == 7 and DX == 1:
-                        dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
-                        if dir_y != 0 and not wall_collision(ROW + dir_y, COL + 1):
-                            COL += 1
-                            OFFSET_X = 0
-                            OFFSET_Y = 0
-                            DX = 0
-                            DY = dir_y
-                    elif OFFSET_X == 1 and DX == -1:
-                        dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
-                        if dir_y != 0 and not wall_collision(ROW + dir_y, COL):
-                            OFFSET_X = 0
-                            OFFSET_Y = 0
-                            DX = 0
-                            DY = dir_y
-
-                    if OFFSET_Y == 1 and DY == -1:
-                        dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]     # -1: left, 0: nothing, 1: right
-                        if dir_x != 0 and not wall_collision(ROW, COL + dir_x):
-                            OFFSET_X = 0
-                            OFFSET_Y = 0
-                            DX = dir_x
-                            DY = 0
-                    elif OFFSET_Y == 7 and DY == 1:
-                        dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]     # -1: left, 0: nothing, 1: right
-                        if dir_x != 0 and not wall_collision(ROW + 1, COL + dir_x):
-                            ROW += 1
-                            OFFSET_X = 0
-                            OFFSET_Y = 0
-                            DX = dir_x
-                            DY = 0                
-
-                    # if pacman is on a junction point
-                    if OFFSET_X == 0 and OFFSET_Y == 0:
-
-                        # eat pellet
-                        if MAZE[ROW][COL] == 1:
-                            MAZE[ROW][COL] = 0
-                            SCORE += 10
-                            if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
-                            PELLETS += 1
-                            if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
-                                ITEM_VISIBLE = True
-                            PACMAN_SKIP_FRAMES += 1
-                        # eat power pellet
-                        elif MAZE[ROW][COL] == 2:
-                            MAZE[ROW][COL] = 0
-                            SCORE += 50
-                            if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
-                            PELLETS += 1
-                            if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
-                                ITEM_VISIBLE = True
-                            PACMAN_SKIP_FRAMES += 3
-
-                        # stop movement if there is a wall in front
-                        if wall_collision(ROW + DY, COL + DX):
-                            DX = 0
-                            DY = 0
-
-                        # check arrow keys and free pathways
-                        dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
-                        if dir_y != 0 and not wall_collision(ROW + dir_y, COL):
-                            DX = 0
-                            DY = dir_y
-                        dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]  # -1: left, 0: nothing, 1: right
-                        if  dir_x != 0 and not wall_collision(ROW, COL + dir_x):
-                            DX = dir_x
-                            DY = 0
-
-                # check for warp tunnels
-                if COL == MAZE_WIDTH:
-                    COL = -1
-                    OFFSET_X = 0
-                elif COL == -2:
-                    COL = MAZE_WIDTH
-                    OFFSET_X = 0
-
-                # if there is no need for skipping this frame
-                if PACMAN_SKIP_FRAMES == 0:
-                    # move pacman
-                    OFFSET_X += DX
-                    OFFSET_Y += DY
-                    if OFFSET_X == 8:
-                        OFFSET_X = 0
+                # early turning
+                if OFFSET_X == 7 and DX == 1:
+                    dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
+                    if dir_y != 0 and not wall_collision(ROW + dir_y, COL + 1):
                         COL += 1
-                    elif OFFSET_X == -1:
-                        OFFSET_X = 7
-                        COL -= 1
-                    elif OFFSET_Y == 8:
+                        OFFSET_X = 0
                         OFFSET_Y = 0
+                        DX = 0
+                        DY = dir_y
+                elif OFFSET_X == 1 and DX == -1:
+                    dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
+                    if dir_y != 0 and not wall_collision(ROW + dir_y, COL):
+                        OFFSET_X = 0
+                        OFFSET_Y = 0
+                        DX = 0
+                        DY = dir_y
+
+                if OFFSET_Y == 1 and DY == -1:
+                    dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]     # -1: left, 0: nothing, 1: right
+                    if dir_x != 0 and not wall_collision(ROW, COL + dir_x):
+                        OFFSET_X = 0
+                        OFFSET_Y = 0
+                        DX = dir_x
+                        DY = 0
+                elif OFFSET_Y == 7 and DY == 1:
+                    dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]     # -1: left, 0: nothing, 1: right
+                    if dir_x != 0 and not wall_collision(ROW + 1, COL + dir_x):
                         ROW += 1
-                    elif OFFSET_Y == -1:
-                        OFFSET_Y = 7
-                        ROW -= 1
-                    # animate pacman
-                    if DX != 0 or DY != 0:
-                        if   DY == -1: FACE = UP
-                        elif DY ==  1: FACE = DOWN
-                        elif DX == -1: FACE = LEFT
-                        elif DX ==  1: FACE = RIGHT
-                        PACMAN_SPRITE_IDX += 1
-                        if PACMAN_SPRITE_IDX >= len(PACMAN_ANIM[FACE]): PACMAN_SPRITE_IDX = 0
-                # else reduce the skipping frame counter by one
-                else:
-                    PACMAN_SKIP_FRAMES -= 1
-                
-                # subtract speed unit from the fractional accumulator
-                ACC -= SPEED_UNIT
+                        OFFSET_X = 0
+                        OFFSET_Y = 0
+                        DX = dir_x
+                        DY = 0                
+
+                # if pacman is on a junction point
+                if OFFSET_X == 0 and OFFSET_Y == 0:
+
+                    # eat pellet
+                    if MAZE[ROW][COL] == 1:
+                        MAZE[ROW][COL] = 0
+                        SCORE += 10
+                        if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
+                        PELLETS += 1
+                        if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
+                            ITEM_VISIBLE = True
+                        PACMAN_SKIP_FRAMES += 1
+                    # eat power pellet
+                    elif MAZE[ROW][COL] == 2:
+                        MAZE[ROW][COL] = 0
+                        SCORE += 50
+                        if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
+                        PELLETS += 1
+                        if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
+                            ITEM_VISIBLE = True
+                        PACMAN_SKIP_FRAMES += 3
+
+                    # stop movement if there is a wall in front
+                    if wall_collision(ROW + DY, COL + DX):
+                        DX = 0
+                        DY = 0
+
+                    # check arrow keys and free pathways
+                    dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
+                    if dir_y != 0 and not wall_collision(ROW + dir_y, COL):
+                        DX = 0
+                        DY = dir_y
+                    dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]  # -1: left, 0: nothing, 1: right
+                    if  dir_x != 0 and not wall_collision(ROW, COL + dir_x):
+                        DX = dir_x
+                        DY = 0
+
+            # check for wrap tunnels
+            if COL == MAZE_WIDTH:
+                COL = -1
+                OFFSET_X = 0
+            elif COL == -2:
+                COL = MAZE_WIDTH
+                OFFSET_X = 0
+
+            # if there is no need for skipping this frame
+            if PACMAN_SKIP_FRAMES == 0:
+                # move pacman
+                OFFSET_X += DX
+                OFFSET_Y += DY
+                if OFFSET_X == 8:
+                    OFFSET_X = 0
+                    COL += 1
+                elif OFFSET_X == -1:
+                    OFFSET_X = 7
+                    COL -= 1
+                elif OFFSET_Y == 8:
+                    OFFSET_Y = 0
+                    ROW += 1
+                elif OFFSET_Y == -1:
+                    OFFSET_Y = 7
+                    ROW -= 1
+                # animate pacman
+                if DX != 0 or DY != 0:
+                    if   DY == -1: FACE = UP
+                    elif DY ==  1: FACE = DOWN
+                    elif DX == -1: FACE = LEFT
+                    elif DX ==  1: FACE = RIGHT
+                    PACMAN_SPRITE_IDX += 1
+                    if PACMAN_SPRITE_IDX >= len(PACMAN_ANIM[FACE]): PACMAN_SPRITE_IDX = 0
+            # else reduce the skipping frame counter by one
+            else:
+                PACMAN_SKIP_FRAMES -= 1
+            
+            # reduce fractional accumulator by speed unit
+            ACC -= SPEED_UNIT
 
 
         # move ghosts
         for i in range(len(G)):
 
-            # when ghost in inside the maze
-            if G_COL[i] >= 0 and G_COL[i] < MAZE_WIDTH - 1:
+            # add ghost's speed to the fractional accumulator
+            G_ACC[i] += G_SPEED[i]
 
-                # if ghost is on a junction point
-                if G_OFF_X[i] == 0 and G_OFF_Y[i] == 0:
+            # if accumulator is greater or equal to game's speed unit,
+            # move ghost at least one time
+            while  G_ACC[i] >= SPEED_UNIT:
 
-                    # create a list for adding the free paths where the ghost can turn
-                    can_turn = []
+                # when ghost in inside the maze
+                if G_COL[i] >= 0 and G_COL[i] < MAZE_WIDTH - 1:
 
-                    # look around, add all free path directions to the list
-                    if not wall_collision(G_ROW[i] - 1, G_COL[i]) and not G_DY[i] == 1: can_turn.append([0, -1])
-                    if not wall_collision(G_ROW[i] + 1, G_COL[i]) and not G_DY[i] == -1: can_turn.append([0, 1])
-                    if not wall_collision(G_ROW[i], G_COL[i] - 1) and not G_DX[i] == 1: can_turn.append([-1, 0])
-                    if not wall_collision(G_ROW[i], G_COL[i] + 1) and not G_DX[i] == -1: can_turn.append([1, 0])
+                    # if ghost is on a junction point
+                    if G_OFF_X[i] == 0 and G_OFF_Y[i] == 0:
 
-                    # pick a random direction
-                    dir = random.choice(can_turn)
+                        # create a list for adding the free paths where the ghost can turn
+                        can_turn = []
 
-                    # set the new direction
-                    G_DX[i] = dir[0]
-                    G_DY[i] = dir[1]
+                        # look around, add all free path directions to the list
+                        if not wall_collision(G_ROW[i] - 1, G_COL[i]) and not G_DY[i] == 1: can_turn.append([0, -1])
+                        if not wall_collision(G_ROW[i] + 1, G_COL[i]) and not G_DY[i] == -1: can_turn.append([0, 1])
+                        if not wall_collision(G_ROW[i], G_COL[i] - 1) and not G_DX[i] == 1: can_turn.append([-1, 0])
+                        if not wall_collision(G_ROW[i], G_COL[i] + 1) and not G_DX[i] == -1: can_turn.append([1, 0])
+
+                        # pick a random direction
+                        dir = random.choice(can_turn)
+
+                        # set the new direction
+                        G_DX[i] = dir[0]
+                        G_DY[i] = dir[1]
+
+                        # set face for animation
+                        match dir:
+                            case [ 0, -1]: G_FACE[i] = UP
+                            case [ 0,  1]: G_FACE[i] = DOWN
+                            case [-1,  0]: G_FACE[i] = LEFT
+                            case [ 1,  0]: G_FACE[i] = RIGHT
 
                 # move ghost
                 G_OFF_X[i] += G_DX[i]
@@ -398,9 +441,21 @@ def main():
                     G_OFF_Y[i] = 7
                     G_ROW[i] -= 1
 
+                # check for wrap tunnels
+                if G_COL[i] == MAZE_WIDTH:
+                    G_COL[i] = -1
+                    G_OFF_X[i] = 0
+                elif G_COL[i] == -2:
+                    G_COL[i] = MAZE_WIDTH
+                    G_OFF_X[i] = 0
+
                 # update ghost position
                 G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
                 G[i].y = G_ROW[i] * TILE_SIZE + G_OFF_Y[i] * SPEED_UNIT
+
+                # reduce fractional accumulator by speed unit
+                G_ACC[i] -= SPEED_UNIT
+
 
         # draw maze
         for i, row in enumerate(MAZE):
@@ -446,12 +501,9 @@ def main():
 
         # draw ghosts
         for i in range(len(G)):
-            match i:
-                case 0: color = "red"
-                case 1: color = "pink"
-                case 2: color = "cyan"
-                case 3: color = "orange"
-            pygame.draw.rect(SCREEN, color, G[i], 1)
+            SCREEN.blit(SPRITES[G_ANIM[i][G_FACE[i]][G_SPRITE_IDX[i]]], (G[i].x - HALF_TILE, G[i].y - HALF_TILE))
+            G_SPRITE_IDX[i] += 1
+            if G_SPRITE_IDX[i] == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX[i] = 0
 
         # draw score
         if SCORE_BLINK_COUNTER < SCORE_BLINK_HALF_TIME: type("1UP", 0, 3)
@@ -474,7 +526,6 @@ def main():
             if item < len(ITEM_LIST):
                 SCREEN.blit(SPRITES[ITEM_LIST[item]], (col * TILE_SIZE, 34 * TILE_SIZE))
         
-
         # blinking items
         SCORE_BLINK_COUNTER += 1
         if SCORE_BLINK_COUNTER == SCORE_BLINK_FULL_TIME: SCORE_BLINK_COUNTER = 0
