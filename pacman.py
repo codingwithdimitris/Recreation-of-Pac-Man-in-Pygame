@@ -228,6 +228,288 @@ RUNNING = True
 # functions and procedures #
 ############################
 
+def clear_screen():
+    SCREEN.fill("black")
+
+def draw_ghosts():
+    global G_SPRITE_IDX
+    for i in range(len(G)):
+        SCREEN.blit(SPRITES[G_ANIM[i][G_FACE[i]][G_SPRITE_IDX[i]]], (G[i].x - HALF_TILE, G[i].y - HALF_TILE))
+        G_SPRITE_IDX[i] += 1
+        if G_SPRITE_IDX[i] == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX[i] = 0
+
+def draw_pacman():
+    SCREEN.blit(SPRITES[PACMAN_ANIM[FACE][PACMAN_SPRITE_IDX]], (PACMAN.x - HALF_TILE, PACMAN.y - HALF_TILE))
+    #pygame.draw.rect(SCREEN, "#FFFF00", PACMAN, 1)
+
+def draw_maze():
+    # draw maze
+    for i, row in enumerate(MAZE):
+        for j, tile in enumerate(row):
+            if tile == 2: # energizer
+                if NRG_BLINK_COUNTER < NRG_BLINK_HALF_TIME:
+                    SCREEN.blit(TILES[tile], (j * TILE_SIZE, i * TILE_SIZE))    
+            elif tile > 0:
+                SCREEN.blit(TILES[tile], (j * TILE_SIZE, i * TILE_SIZE))
+
+def handle_bonus_item():
+    global ITEM_VISIBLE, ITEM_DISPLAY_TIME, ITEM_POINTS_TIME, SCORE
+
+    # show bonus items
+    if ITEM_VISIBLE:
+        if ITEM_DISPLAY_TIME > 0:
+            SCREEN.blit(SPRITES[ITEMS[LEVEL]], (ITEM.x, ITEM.y))
+            ITEM_DISPLAY_TIME -= 1
+            if ITEM_DISPLAY_TIME == 0:
+                ITEM_DISPLAY_TIME = 10 * FPS
+                ITEM_POINTS_TIME = 2 * FPS
+                ITEM_VISIBLE = False
+            # check collision with pacman
+            elif PACMAN.colliderect(ITEM):
+                SCORE += ITEM_POINTS[LEVEL]
+                ITEM_DISPLAY_TIME = 0
+        else:
+            if ITEM_POINTS_TIME > 0:
+                SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL]], (ITEM.x, ITEM.y))
+                if ITEM_POINTS_SPRITE[LEVEL] == 102:
+                    SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL] + 1], (ITEM.x + DOUBLE_TILE, ITEM.y))
+                elif ITEM_POINTS_SPRITE[LEVEL] > 102:
+                    SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL] - 1], (ITEM.x - DOUBLE_TILE, ITEM.y))
+                    SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL] + 1], (ITEM.x + DOUBLE_TILE, ITEM.y))
+                ITEM_POINTS_TIME -= 1
+            else:
+                ITEM_VISIBLE = False
+                ITEM_DISPLAY_TIME = 10 * FPS
+                ITEM_POINTS_TIME = 2 * FPS
+
+def move_ghosts():
+
+    global G_ACC, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_FACE, G_SPEED
+
+    # move ghosts
+    for i in range(len(G)):
+
+        # add ghost's speed to the fractional accumulator
+        G_ACC[i] += G_SPEED[i]
+
+        # if accumulator is greater or equal to game's speed unit,
+        # move ghost at least one time
+        while  G_ACC[i] >= SPEED_UNIT:
+
+            # when ghost in inside the maze
+            if G_COL[i] >= 0 and G_COL[i] < MAZE_WIDTH - 1:
+
+                # if ghost is on a junction point
+                if G_OFF_X[i] == 0 and G_OFF_Y[i] == 0:
+
+                    # create a list for adding the free paths where the ghost can turn
+                    can_turn = []
+
+                    # look around, add all free path directions to the list
+                    if not wall_collision(G_ROW[i] - 1, G_COL[i]) and not G_DY[i] == 1:
+                        if not((G_ROW[i] == 14 or G_ROW[i] == 26) and (G_COL[i] == 12 or G_COL[i] == 15)): 
+                            can_turn.append([0, -1])
+                    if not wall_collision(G_ROW[i] + 1, G_COL[i]) and not G_DY[i] == -1: can_turn.append([0, 1])
+                    if not wall_collision(G_ROW[i], G_COL[i] - 1) and not G_DX[i] == 1: can_turn.append([-1, 0])
+                    if not wall_collision(G_ROW[i], G_COL[i] + 1) and not G_DX[i] == -1: can_turn.append([1, 0])
+
+                    # pick a random direction
+                    dir = random.choice(can_turn)
+
+                    # set the new direction
+                    G_DX[i] = dir[0]
+                    G_DY[i] = dir[1]
+
+                    # set face for animation
+                    match dir:
+                        case [ 0, -1]: G_FACE[i] = UP
+                        case [ 0,  1]: G_FACE[i] = DOWN
+                        case [-1,  0]: G_FACE[i] = LEFT
+                        case [ 1,  0]: G_FACE[i] = RIGHT
+
+            # move ghost
+            G_OFF_X[i] += G_DX[i]
+            G_OFF_Y[i] += G_DY[i]
+            if G_OFF_X[i] == 8:
+                G_OFF_X[i] = 0
+                G_COL[i] += 1
+            elif G_OFF_X[i] == -1:
+                G_OFF_X[i] = 7
+                G_COL[i] -= 1
+            elif G_OFF_Y[i] == 8:
+                G_OFF_Y[i] = 0
+                G_ROW[i] += 1
+            elif G_OFF_Y[i] == -1:
+                G_OFF_Y[i] = 7
+                G_ROW[i] -= 1
+
+            # check for wrap tunnels
+            if G_COL[i] == MAZE_WIDTH:
+                G_COL[i] = -1
+                G_OFF_X[i] = 0
+            elif G_COL[i] == -2:
+                G_COL[i] = MAZE_WIDTH
+                G_OFF_X[i] = 0
+
+            # adjust ghost speed when entering a tunnel
+            if G_ROW[i] == 17 and (G_COL[i] < 5 or G_COL[i] > 22):
+                G_SPEED[i] = G_SPEED_TUNNEL[LEVEL] * SPEED_UNIT
+            else:
+                G_SPEED[i] = G_SPEED_NORMAL[LEVEL] * SPEED_UNIT
+
+            # update ghost position
+            G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
+            G[i].y = G_ROW[i] * TILE_SIZE + G_OFF_Y[i] * SPEED_UNIT
+
+            # reduce fractional accumulator by speed unit
+            G_ACC[i] -= SPEED_UNIT
+
+def move_pacman():
+
+    global ACC, PACMAN_SPEED, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, FACE
+    global MAZE, PELLETS, SCORE, HIGH_SCORE, PACMAN_SKIP_FRAMES, PACMAN_SPRITE_IDX, ITEM_VISIBLE
+
+    # add pacman's speed to the fractional accumulator
+    ACC += PACMAN_SPEED
+
+    # if accumulator is greater or equal to game's speed unit,
+    # move pacman at least one time
+    while ACC >= SPEED_UNIT:
+
+        # check keys
+        keys = pygame.key.get_pressed()
+
+        # when pacman is inside the maze
+        if COL >= 0 and COL < MAZE_WIDTH - 1:
+
+            # early turning
+            if OFFSET_X == 7 and DX == 1:
+                dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
+                if dir_y != 0 and not wall_collision(ROW + dir_y, COL + 1):
+                    COL += 1
+                    OFFSET_X = 0
+                    OFFSET_Y = 0
+                    DX = 0
+                    DY = dir_y
+            elif OFFSET_X == 1 and DX == -1:
+                dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
+                if dir_y != 0 and not wall_collision(ROW + dir_y, COL):
+                    OFFSET_X = 0
+                    OFFSET_Y = 0
+                    DX = 0
+                    DY = dir_y
+
+            if OFFSET_Y == 1 and DY == -1:
+                dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]     # -1: left, 0: nothing, 1: right
+                if dir_x != 0 and not wall_collision(ROW, COL + dir_x):
+                    OFFSET_X = 0
+                    OFFSET_Y = 0
+                    DX = dir_x
+                    DY = 0
+            elif OFFSET_Y == 7 and DY == 1:
+                dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]     # -1: left, 0: nothing, 1: right
+                if dir_x != 0 and not wall_collision(ROW + 1, COL + dir_x):
+                    ROW += 1
+                    OFFSET_X = 0
+                    OFFSET_Y = 0
+                    DX = dir_x
+                    DY = 0                
+
+            # if pacman is on a junction point
+            if OFFSET_X == 0 and OFFSET_Y == 0:
+
+                # eat pellet
+                if MAZE[ROW][COL] == 1:
+                    MAZE[ROW][COL] = 0
+                    SCORE += 10
+                    if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
+                    PELLETS += 1
+                    if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
+                        ITEM_VISIBLE = True
+                    PACMAN_SKIP_FRAMES += 1
+                # eat power pellet
+                elif MAZE[ROW][COL] == 2:
+                    MAZE[ROW][COL] = 0
+                    SCORE += 50
+                    if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
+                    PELLETS += 1
+                    if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
+                        ITEM_VISIBLE = True
+                    PACMAN_SKIP_FRAMES += 3
+
+                # stop movement if there is a wall in front
+                if wall_collision(ROW + DY, COL + DX):
+                    DX = 0
+                    DY = 0
+
+                # check arrow keys and free pathways
+                dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
+                if dir_y != 0 and not wall_collision(ROW + dir_y, COL):
+                    DX = 0
+                    DY = dir_y
+                dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]  # -1: left, 0: nothing, 1: right
+                if  dir_x != 0 and not wall_collision(ROW, COL + dir_x):
+                    DX = dir_x
+                    DY = 0
+
+        # check for wrap tunnels
+        if COL == MAZE_WIDTH:
+            COL = -1
+            OFFSET_X = 0
+        elif COL == -2:
+            COL = MAZE_WIDTH
+            OFFSET_X = 0
+
+        # if there is no need for skipping this frame
+        if PACMAN_SKIP_FRAMES == 0:
+            # move pacman
+            OFFSET_X += DX
+            OFFSET_Y += DY
+            if OFFSET_X == 8:
+                OFFSET_X = 0
+                COL += 1
+            elif OFFSET_X == -1:
+                OFFSET_X = 7
+                COL -= 1
+            elif OFFSET_Y == 8:
+                OFFSET_Y = 0
+                ROW += 1
+            elif OFFSET_Y == -1:
+                OFFSET_Y = 7
+                ROW -= 1
+            # animate pacman
+            if DX != 0 or DY != 0:
+                if   DY == -1: FACE = UP
+                elif DY ==  1: FACE = DOWN
+                elif DX == -1: FACE = LEFT
+                elif DX ==  1: FACE = RIGHT
+                PACMAN_SPRITE_IDX += 1
+                if PACMAN_SPRITE_IDX >= len(PACMAN_ANIM[FACE]): PACMAN_SPRITE_IDX = 0
+        # else reduce the skipping frame counter by one
+        else:
+            PACMAN_SKIP_FRAMES -= 1
+
+        # update pacman's position
+        PACMAN.x = COL * TILE_SIZE + OFFSET_X * SPEED_UNIT
+        PACMAN.y = ROW * TILE_SIZE + OFFSET_Y * SPEED_UNIT
+        
+        # reduce fractional accumulator by speed unit
+        ACC -= SPEED_UNIT
+
+def poll_events():
+    global RUNNING
+
+    # poll for events
+    for event in pygame.event.get():
+        # [X] icon --> quit
+        if event.type == pygame.QUIT:
+            RUNNING = False
+        # check keyboard
+        if event.type == pygame.KEYDOWN:
+            # ESC key --> quit
+            if event.key == pygame.K_ESCAPE:
+                RUNNING = False
+
 def type(string, row, col):
     text = FONT.render(string, False, "#dedeff")
     SCREEN.blit(text, (col * TILE_SIZE, row * TILE_SIZE))
@@ -248,262 +530,23 @@ def main():
     global G, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_ACC, G_SPEED, G_SPRITE_IDX, G_FACE
     
     while RUNNING:
-        # poll for events
-        for event in pygame.event.get():
-            # [X] icon --> quit
-            if event.type == pygame.QUIT:
-                RUNNING = False
-            # check keyboard
-            if event.type == pygame.KEYDOWN:
-                # ESC key --> quit
-                if event.key == pygame.K_ESCAPE:
-                    RUNNING = False
 
-        # clear screen
-        SCREEN.fill("black")
+        poll_events()
 
-        # add pacman's speed to the fractional accumulator
-        ACC += PACMAN_SPEED
+        clear_screen()
 
-        # if accumulator is greater or equal to game's speed unit,
-        # move pacman at least one time
-        while ACC >= SPEED_UNIT:
+        move_pacman()
 
-            # check keys
-            keys = pygame.key.get_pressed()
+        move_ghosts()
 
-            # when pacman is inside the maze
-            if COL >= 0 and COL < MAZE_WIDTH - 1:
+        draw_maze()
 
-                # early turning
-                if OFFSET_X == 7 and DX == 1:
-                    dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
-                    if dir_y != 0 and not wall_collision(ROW + dir_y, COL + 1):
-                        COL += 1
-                        OFFSET_X = 0
-                        OFFSET_Y = 0
-                        DX = 0
-                        DY = dir_y
-                elif OFFSET_X == 1 and DX == -1:
-                    dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
-                    if dir_y != 0 and not wall_collision(ROW + dir_y, COL):
-                        OFFSET_X = 0
-                        OFFSET_Y = 0
-                        DX = 0
-                        DY = dir_y
+        handle_bonus_item()
 
-                if OFFSET_Y == 1 and DY == -1:
-                    dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]     # -1: left, 0: nothing, 1: right
-                    if dir_x != 0 and not wall_collision(ROW, COL + dir_x):
-                        OFFSET_X = 0
-                        OFFSET_Y = 0
-                        DX = dir_x
-                        DY = 0
-                elif OFFSET_Y == 7 and DY == 1:
-                    dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]     # -1: left, 0: nothing, 1: right
-                    if dir_x != 0 and not wall_collision(ROW + 1, COL + dir_x):
-                        ROW += 1
-                        OFFSET_X = 0
-                        OFFSET_Y = 0
-                        DX = dir_x
-                        DY = 0                
+        draw_pacman()
 
-                # if pacman is on a junction point
-                if OFFSET_X == 0 and OFFSET_Y == 0:
-
-                    # eat pellet
-                    if MAZE[ROW][COL] == 1:
-                        MAZE[ROW][COL] = 0
-                        SCORE += 10
-                        if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
-                        PELLETS += 1
-                        if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
-                            ITEM_VISIBLE = True
-                        PACMAN_SKIP_FRAMES += 1
-                    # eat power pellet
-                    elif MAZE[ROW][COL] == 2:
-                        MAZE[ROW][COL] = 0
-                        SCORE += 50
-                        if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
-                        PELLETS += 1
-                        if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
-                            ITEM_VISIBLE = True
-                        PACMAN_SKIP_FRAMES += 3
-
-                    # stop movement if there is a wall in front
-                    if wall_collision(ROW + DY, COL + DX):
-                        DX = 0
-                        DY = 0
-
-                    # check arrow keys and free pathways
-                    dir_y = keys[pygame.K_DOWN] - keys[pygame.K_UP]     # -1: up, 0: nothing, 1: down
-                    if dir_y != 0 and not wall_collision(ROW + dir_y, COL):
-                        DX = 0
-                        DY = dir_y
-                    dir_x = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]  # -1: left, 0: nothing, 1: right
-                    if  dir_x != 0 and not wall_collision(ROW, COL + dir_x):
-                        DX = dir_x
-                        DY = 0
-
-            # check for wrap tunnels
-            if COL == MAZE_WIDTH:
-                COL = -1
-                OFFSET_X = 0
-            elif COL == -2:
-                COL = MAZE_WIDTH
-                OFFSET_X = 0
-
-            # if there is no need for skipping this frame
-            if PACMAN_SKIP_FRAMES == 0:
-                # move pacman
-                OFFSET_X += DX
-                OFFSET_Y += DY
-                if OFFSET_X == 8:
-                    OFFSET_X = 0
-                    COL += 1
-                elif OFFSET_X == -1:
-                    OFFSET_X = 7
-                    COL -= 1
-                elif OFFSET_Y == 8:
-                    OFFSET_Y = 0
-                    ROW += 1
-                elif OFFSET_Y == -1:
-                    OFFSET_Y = 7
-                    ROW -= 1
-                # animate pacman
-                if DX != 0 or DY != 0:
-                    if   DY == -1: FACE = UP
-                    elif DY ==  1: FACE = DOWN
-                    elif DX == -1: FACE = LEFT
-                    elif DX ==  1: FACE = RIGHT
-                    PACMAN_SPRITE_IDX += 1
-                    if PACMAN_SPRITE_IDX >= len(PACMAN_ANIM[FACE]): PACMAN_SPRITE_IDX = 0
-            # else reduce the skipping frame counter by one
-            else:
-                PACMAN_SKIP_FRAMES -= 1
-            
-            # reduce fractional accumulator by speed unit
-            ACC -= SPEED_UNIT
-
-
-        # move ghosts
-        for i in range(len(G)):
-
-            # add ghost's speed to the fractional accumulator
-            G_ACC[i] += G_SPEED[i]
-
-            # if accumulator is greater or equal to game's speed unit,
-            # move ghost at least one time
-            while  G_ACC[i] >= SPEED_UNIT:
-
-                # when ghost in inside the maze
-                if G_COL[i] >= 0 and G_COL[i] < MAZE_WIDTH - 1:
-
-                    # if ghost is on a junction point
-                    if G_OFF_X[i] == 0 and G_OFF_Y[i] == 0:
-
-                        # create a list for adding the free paths where the ghost can turn
-                        can_turn = []
-
-                        # look around, add all free path directions to the list
-                        if not wall_collision(G_ROW[i] - 1, G_COL[i]) and not G_DY[i] == 1: can_turn.append([0, -1])
-                        if not wall_collision(G_ROW[i] + 1, G_COL[i]) and not G_DY[i] == -1: can_turn.append([0, 1])
-                        if not wall_collision(G_ROW[i], G_COL[i] - 1) and not G_DX[i] == 1: can_turn.append([-1, 0])
-                        if not wall_collision(G_ROW[i], G_COL[i] + 1) and not G_DX[i] == -1: can_turn.append([1, 0])
-
-                        # pick a random direction
-                        dir = random.choice(can_turn)
-
-                        # set the new direction
-                        G_DX[i] = dir[0]
-                        G_DY[i] = dir[1]
-
-                        # set face for animation
-                        match dir:
-                            case [ 0, -1]: G_FACE[i] = UP
-                            case [ 0,  1]: G_FACE[i] = DOWN
-                            case [-1,  0]: G_FACE[i] = LEFT
-                            case [ 1,  0]: G_FACE[i] = RIGHT
-
-                # move ghost
-                G_OFF_X[i] += G_DX[i]
-                G_OFF_Y[i] += G_DY[i]
-                if G_OFF_X[i] == 8:
-                    G_OFF_X[i] = 0
-                    G_COL[i] += 1
-                elif G_OFF_X[i] == -1:
-                    G_OFF_X[i] = 7
-                    G_COL[i] -= 1
-                elif G_OFF_Y[i] == 8:
-                    G_OFF_Y[i] = 0
-                    G_ROW[i] += 1
-                elif G_OFF_Y[i] == -1:
-                    G_OFF_Y[i] = 7
-                    G_ROW[i] -= 1
-
-                # check for wrap tunnels
-                if G_COL[i] == MAZE_WIDTH:
-                    G_COL[i] = -1
-                    G_OFF_X[i] = 0
-                elif G_COL[i] == -2:
-                    G_COL[i] = MAZE_WIDTH
-                    G_OFF_X[i] = 0
-
-                # update ghost position
-                G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
-                G[i].y = G_ROW[i] * TILE_SIZE + G_OFF_Y[i] * SPEED_UNIT
-
-                # reduce fractional accumulator by speed unit
-                G_ACC[i] -= SPEED_UNIT
-
-
-        # draw maze
-        for i, row in enumerate(MAZE):
-            for j, tile in enumerate(row):
-                if tile == 2: # energizer
-                    if NRG_BLINK_COUNTER < NRG_BLINK_HALF_TIME:
-                        SCREEN.blit(TILES[tile], (j * TILE_SIZE, i * TILE_SIZE))    
-                elif tile > 0:
-                    SCREEN.blit(TILES[tile], (j * TILE_SIZE, i * TILE_SIZE))
-
-        # show bonus items
-        if ITEM_VISIBLE:
-            if ITEM_DISPLAY_TIME > 0:
-                SCREEN.blit(SPRITES[ITEMS[LEVEL]], (ITEM.x, ITEM.y))
-                ITEM_DISPLAY_TIME -= 1
-                if ITEM_DISPLAY_TIME == 0:
-                    ITEM_DISPLAY_TIME = 10 * FPS
-                    ITEM_POINTS_TIME = 2 * FPS
-                    ITEM_VISIBLE = False
-                # check collision with pacman
-                elif PACMAN.colliderect(ITEM):
-                    SCORE += ITEM_POINTS[LEVEL]
-                    ITEM_DISPLAY_TIME = 0
-            else:
-                if ITEM_POINTS_TIME > 0:
-                    SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL]], (ITEM.x, ITEM.y))
-                    if ITEM_POINTS_SPRITE[LEVEL] == 102:
-                        SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL] + 1], (ITEM.x + DOUBLE_TILE, ITEM.y))
-                    elif ITEM_POINTS_SPRITE[LEVEL] > 102:
-                        SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL] - 1], (ITEM.x - DOUBLE_TILE, ITEM.y))
-                        SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL] + 1], (ITEM.x + DOUBLE_TILE, ITEM.y))
-                    ITEM_POINTS_TIME -= 1
-                else:
-                    ITEM_VISIBLE = False
-                    ITEM_DISPLAY_TIME = 10 * FPS
-                    ITEM_POINTS_TIME = 2 * FPS
+        draw_ghosts()
         
-        # calculate coordinates and draw pacman
-        PACMAN.x = COL * TILE_SIZE + OFFSET_X * SPEED_UNIT
-        PACMAN.y = ROW * TILE_SIZE + OFFSET_Y * SPEED_UNIT
-        SCREEN.blit(SPRITES[PACMAN_ANIM[FACE][PACMAN_SPRITE_IDX]], (PACMAN.x - HALF_TILE, PACMAN.y - HALF_TILE))
-        #pygame.draw.rect(SCREEN, "#FFFF00", PACMAN, 1)
-
-        # draw ghosts
-        for i in range(len(G)):
-            SCREEN.blit(SPRITES[G_ANIM[i][G_FACE[i]][G_SPRITE_IDX[i]]], (G[i].x - HALF_TILE, G[i].y - HALF_TILE))
-            G_SPRITE_IDX[i] += 1
-            if G_SPRITE_IDX[i] == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX[i] = 0
 
         # draw score
         if SCORE_BLINK_COUNTER < SCORE_BLINK_HALF_TIME: type("1UP", 0, 3)
