@@ -1,4 +1,4 @@
-import pygame, random
+import pygame, random, math
 
 pygame.init()
 
@@ -167,6 +167,7 @@ G_OFF_Y = [0, 0, 0, 0]
 G_DX = [-1, -1, 1, 1]
 G_DY = [0, 0, 0, 0]
 G_ACC = [0, 0, 0, 0]
+G_TARGET = [(0, 25), (0, 2), (34, 27), (34, 0)]
 G_ANIM = [
     [   # blinky
         [45, 45, 45, 45, 45, 45, 45, 45, 46, 46, 46, 46, 46, 46, 46, 46], # up
@@ -228,8 +229,21 @@ RUNNING = True
 # functions and procedures #
 ############################
 
+def calculate_distance(start_pos, end_pos):
+    return math.sqrt((end_pos[0] - start_pos[0]) ** 2 + (end_pos[1] - start_pos[1]) ** 2)
+
 def clear_screen():
     SCREEN.fill("black")
+
+def display_current_frame():
+    pygame.display.flip()   # display current frame
+    CLOCK.tick(FPS)         # limits FPS
+
+def draw_bonus_items():
+    # draw bonus items on bottom (COLS: 24, 22, 20, 18, 16, 14, 12)
+    for item, col in enumerate(range(24, 11, -2)):
+        if item < len(ITEM_LIST):
+            SCREEN.blit(SPRITES[ITEM_LIST[item]], (col * TILE_SIZE, 34 * TILE_SIZE))
 
 def draw_ghosts():
     global G_SPRITE_IDX
@@ -238,9 +252,27 @@ def draw_ghosts():
         G_SPRITE_IDX[i] += 1
         if G_SPRITE_IDX[i] == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX[i] = 0
 
+def draw_highscore():
+    type("HIGH SCORE", 0, 9)
+    if HIGH_SCORE > 0: type(str(HIGH_SCORE).rjust(8, " "), 1, 9)
+
 def draw_pacman():
     SCREEN.blit(SPRITES[PACMAN_ANIM[FACE][PACMAN_SPRITE_IDX]], (PACMAN.x - HALF_TILE, PACMAN.y - HALF_TILE))
     #pygame.draw.rect(SCREEN, "#FFFF00", PACMAN, 1)
+
+def draw_remaining_lives():
+    # draw remaining lives (COLS: 2, 4, 6, 8, 10)
+    for life, col in enumerate(range(2, 11, 2)):
+        if life < LIVES - 1:
+            SCREEN.blit(SPRITES[15], (col * TILE_SIZE, 34 * TILE_SIZE))
+
+def draw_score():
+    # draw score
+    if SCORE_BLINK_COUNTER < SCORE_BLINK_HALF_TIME: type("1UP", 0, 3)
+    if SCORE == 0:
+        type("00", 1, 5)
+    else:
+        type(str(SCORE).rjust(7, " "), 1, 0)
 
 def draw_maze():
     # draw maze
@@ -302,30 +334,42 @@ def move_ghosts():
                 # if ghost is on a junction point
                 if G_OFF_X[i] == 0 and G_OFF_Y[i] == 0:
 
-                    # create a list for adding the free paths where the ghost can turn
-                    can_turn = []
+                    # distance from each direction to the target tile (up, down,left, right)
+                    # -1 means that distance is not available
+                    dist = [-1] * 4
 
-                    # look around, add all free path directions to the list
+                    # target tile
+                    target = G_TARGET[i]
+                    #target = (ROW, COL)
+
+                    # calculate distances
                     if not wall_collision(G_ROW[i] - 1, G_COL[i]) and not G_DY[i] == 1:
                         if not((G_ROW[i] == 14 or G_ROW[i] == 26) and (G_COL[i] == 12 or G_COL[i] == 15)): 
-                            can_turn.append([0, -1])
-                    if not wall_collision(G_ROW[i] + 1, G_COL[i]) and not G_DY[i] == -1: can_turn.append([0, 1])
-                    if not wall_collision(G_ROW[i], G_COL[i] - 1) and not G_DX[i] == 1: can_turn.append([-1, 0])
-                    if not wall_collision(G_ROW[i], G_COL[i] + 1) and not G_DX[i] == -1: can_turn.append([1, 0])
+                            dist[0] = calculate_distance((G_ROW[i] - 1, G_COL[i]), target)
+                    if not wall_collision(G_ROW[i] + 1, G_COL[i]) and not G_DY[i] == -1: dist[1] = calculate_distance((G_ROW[i] + 1, G_COL[i]), target)
+                    if not wall_collision(G_ROW[i], G_COL[i] - 1) and not G_DX[i] == 1: dist[2] = calculate_distance((G_ROW[i], G_COL[i] - 1), target)
+                    if not wall_collision(G_ROW[i], G_COL[i] + 1) and not G_DX[i] == -1: dist[3] = calculate_distance((G_ROW[i], G_COL[i] + 1), target)
 
-                    # pick a random direction
-                    dir = random.choice(can_turn)
-
-                    # set the new direction
-                    G_DX[i] = dir[0]
-                    G_DY[i] = dir[1]
-
-                    # set face for animation
-                    match dir:
-                        case [ 0, -1]: G_FACE[i] = UP
-                        case [ 0,  1]: G_FACE[i] = DOWN
-                        case [-1,  0]: G_FACE[i] = LEFT
-                        case [ 1,  0]: G_FACE[i] = RIGHT
+                    # pick the path with the shortest distance
+                    min_val = min((i for i in dist if i != -1), default = None)
+                    if min_val != None:
+                        match dist.index(min_val):
+                            case 0:
+                                G_DX[i] = 0
+                                G_DY[i] = -1
+                                G_FACE[i] = UP
+                            case 1:
+                                G_DX[i] = 0
+                                G_DY[i] = 1
+                                G_FACE[i] = DOWN
+                            case 2:
+                                G_DX[i] = -1
+                                G_DY[i] = 0
+                                G_FACE[i] = LEFT
+                            case 3:
+                                G_DX[i] = 1
+                                G_DY[i] = 0
+                                G_FACE[i] = RIGHT
 
             # move ghost
             G_OFF_X[i] += G_DX[i]
@@ -514,6 +558,15 @@ def type(string, row, col):
     text = FONT.render(string, False, "#dedeff")
     SCREEN.blit(text, (col * TILE_SIZE, row * TILE_SIZE))
 
+def update_timers():
+    global SCORE_BLINK_COUNTER, NRG_BLINK_COUNTER
+
+    # blinking items
+    SCORE_BLINK_COUNTER += 1
+    if SCORE_BLINK_COUNTER == SCORE_BLINK_FULL_TIME: SCORE_BLINK_COUNTER = 0
+    NRG_BLINK_COUNTER += 1
+    if NRG_BLINK_COUNTER == NRG_BLINK_FULL_TIME: NRG_BLINK_COUNTER = 0
+
 def wall_collision(row, col):
     collision = False
     if row >= 0 and row < MAZE_HEIGHT:
@@ -523,63 +576,23 @@ def wall_collision(row, col):
     return collision
 
 def main():
-    global RUNNING, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, SCORE, HIGH_SCORE
-    global PACMAN_SPRITE_IDX, FACE, SCORE_BLINK_COUNTER, NRG_BLINK_COUNTER
-    global PELLETS, ITEM_VISIBLE, ITEM_DISPLAY_TIME, ITEM_POINTS_TIME
-    global PACMAN_SKIP_FRAMES, ACC
-    global G, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_ACC, G_SPEED, G_SPRITE_IDX, G_FACE
+    global RUNNING
     
     while RUNNING:
-
         poll_events()
-
         clear_screen()
-
         move_pacman()
-
         move_ghosts()
-
         draw_maze()
-
         handle_bonus_item()
-
         draw_pacman()
-
         draw_ghosts()
-        
-
-        # draw score
-        if SCORE_BLINK_COUNTER < SCORE_BLINK_HALF_TIME: type("1UP", 0, 3)
-        if SCORE == 0:
-            type("00", 1, 5)
-        else:
-            type(str(SCORE).rjust(7, " "), 1, 0)
-
-        # draw high score
-        type("HIGH SCORE", 0, 9)
-        if HIGH_SCORE > 0: type(str(HIGH_SCORE).rjust(8, " "), 1, 9)
-
-        # draw remaining lives (COLS: 2, 4, 6, 8, 10)
-        for life, col in enumerate(range(2, 11, 2)):
-            if life < LIVES - 1:
-                SCREEN.blit(SPRITES[15], (col * TILE_SIZE, 34 * TILE_SIZE))
-
-        # draw bonus items on bottom (COLS: 24, 22, 20, 18, 16, 14, 12)
-        for item, col in enumerate(range(24, 11, -2)):
-            if item < len(ITEM_LIST):
-                SCREEN.blit(SPRITES[ITEM_LIST[item]], (col * TILE_SIZE, 34 * TILE_SIZE))
-        
-        # blinking items
-        SCORE_BLINK_COUNTER += 1
-        if SCORE_BLINK_COUNTER == SCORE_BLINK_FULL_TIME: SCORE_BLINK_COUNTER = 0
-        NRG_BLINK_COUNTER += 1
-        if NRG_BLINK_COUNTER == NRG_BLINK_FULL_TIME: NRG_BLINK_COUNTER = 0
-
-        # display current frame
-        pygame.display.flip()
-
-        # limits FPS
-        CLOCK.tick(FPS)  
+        draw_score()
+        draw_highscore()
+        draw_remaining_lives()
+        draw_bonus_items()
+        update_timers()
+        display_current_frame()
 
     pygame.mouse.set_visible(True)
     pygame.quit()
