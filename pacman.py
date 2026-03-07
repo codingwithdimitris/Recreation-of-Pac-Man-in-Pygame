@@ -12,14 +12,8 @@ ORIGINAL_TILE_SIZE = 8
 ORIGINAL_SPEED_UNIT = 1     # characters move 1px on each movement call
 ORIGINAL_MAX_SPEED = 1.25   # maximum speed is 1.25px per frame
 
-# this game
-FPS = int(ORIGINAL_FPS)
-ZOOM = 3
-SPEED_UNIT = ORIGINAL_SPEED_UNIT * ZOOM
-MAX_SPEED = ORIGINAL_MAX_SPEED * ZOOM
-
 # maze
-MAZE = [
+ORIGINAL_MAZE = [
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
@@ -57,8 +51,14 @@ MAZE = [
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 ]
-MAZE_WIDTH = len(MAZE[0])
-MAZE_HEIGHT = len(MAZE)
+MAZE_WIDTH = len(ORIGINAL_MAZE[0])
+MAZE_HEIGHT = len(ORIGINAL_MAZE)
+
+# this game
+FPS = int(ORIGINAL_FPS)
+ZOOM = int(pygame.display.Info().current_h // (ORIGINAL_TILE_SIZE * MAZE_HEIGHT))
+SPEED_UNIT = ORIGINAL_SPEED_UNIT * ZOOM
+MAX_SPEED = ORIGINAL_MAX_SPEED * ZOOM
 
 # tiles
 TILE_SIZE = ORIGINAL_TILE_SIZE * ZOOM
@@ -76,9 +76,6 @@ for i in range(125):
 # font
 FONT = pygame.font.Font("font/press_start_2p.ttf", TILE_SIZE)
 
-# level
-LEVEL = 0
-
 # directions
 UP = 0
 DOWN = 1
@@ -87,22 +84,12 @@ RIGHT = 3
 
 # pacman
 PACMAN = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
-ROW = 26
-COL = 13
-OFFSET_X = 4
-OFFSET_Y = 0
-DX = -1
-DY = 0
-ACC = 0
-FACE = LEFT
 PACMAN_ANIM = [
     [23, 23, 23, 24, 24, 24, 2, 2, 2, 24, 24, 24],  # up
     [31, 31, 31, 32, 32, 32, 2, 2, 2, 32, 32, 32],  # down
     [14, 14, 14, 15, 15, 15, 2, 2, 2, 15, 15, 15],  # left
     [0, 0, 0, 1, 1, 1, 2, 2, 2, 1, 1, 1],           # right
 ]
-PACMAN_SPRITE_IDX = 0
-PACMAN_SKIP_FRAMES = 0
 
 # pacman's normal speed table
 PACMAN_SPEED_NORMAL = [0.80]
@@ -114,27 +101,6 @@ PACMAN_SPEED_NORMAL.extend([0.90] * 236)
 PACMAN_SPEED_FRIGHT = [0.90]
 PACMAN_SPEED_FRIGHT.extend([0.95] * 3)
 PACMAN_SPEED_FRIGHT.extend([1.00] * 252)
-
-# pacman's start speed
-PACMAN_SPEED = PACMAN_SPEED_NORMAL[LEVEL] * MAX_SPEED
-
-# lives
-LIVES = 3
-
-# pellets
-PELLETS = 0
-
-# score
-SCORE = 0
-HIGH_SCORE = 0
-SCORE_BLINK_COUNTER = 0
-SCORE_BLINK_FULL_TIME = 48  # number of frames for a full cycle
-SCORE_BLINK_HALF_TIME = int(SCORE_BLINK_FULL_TIME // 2)
-
-# energizers
-NRG_BLINK_COUNTER = 0
-NRG_BLINK_FULL_TIME = 30  # number of frames for a full cycle
-NRG_BLINK_HALF_TIME = int(NRG_BLINK_FULL_TIME // 2)
 
 # bonus items
 # 33: 🍒 Cherry 100,    34: 🍓 Strawberry 300,  35: 🟠 Orange 500,  36: 🍎 Apple 700, 
@@ -153,20 +119,11 @@ ITEM_VISIBLE = False                # true when item is visible
 ITEM = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
 ITEM.x = 13 * TILE_SIZE
 ITEM.y = 20 * TILE_SIZE - HALF_TILE
-ITEM_LIST = []
-for i in range(max(0, LEVEL - 6), LEVEL + 1, 1): ITEM_LIST.append(ITEMS[i])
 
 # ghosts
 G = []
 for i in range(4):
     G.append(pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE))
-G_ROW = [14, 14, 14, 14]
-G_COL = [13, 15, 11, 17]
-G_OFF_X = [4, 4, 4, 4]
-G_OFF_Y = [0, 0, 0, 0]
-G_DX = [-1, -1, 1, 1]
-G_DY = [0, 0, 0, 0]
-G_ACC = [0, 0, 0, 0]
 G_TARGET = [(0, 25), (0, 2), (34, 27), (34, 0)]
 G_ANIM = [
     [   # blinky
@@ -194,8 +151,6 @@ G_ANIM = [
         [78, 78, 78, 78, 78, 78, 78, 78, 79, 79, 79, 79, 79, 79, 79, 79]   # right
     ]
 ]
-G_FACE = [LEFT, LEFT, RIGHT, RIGHT]
-G_SPRITE_IDX = [0, 0, 0, 0]
 
 # ghost normal speed table
 G_SPEED_NORMAL = [0.75, 0.85, 0.85, 0.85]
@@ -209,9 +164,6 @@ G_SPEED_TUNNEL.extend([0.50] * 252)
 G_SPEED_FRIGHT = [0.50, 0.55, 0.55, 0.55]
 G_SPEED_FRIGHT.extend([0.60] * 252)
 
-# ghost's start speed
-G_SPEED = [G_SPEED_NORMAL[LEVEL] * MAX_SPEED] * 4
-
 # screen
 SCREEN_WIDTH = MAZE_WIDTH * TILE_SIZE
 SCREEN_HEIGHT = MAZE_HEIGHT * TILE_SIZE
@@ -224,6 +176,7 @@ CLOCK = pygame.time.Clock()
 
 # main loop control
 RUNNING = True
+GAME_FLOW = "NEW_GAME"
 
 ############################
 # functions and procedures #
@@ -313,6 +266,61 @@ def handle_bonus_item():
                 ITEM_VISIBLE = False
                 ITEM_DISPLAY_TIME = 10 * FPS
                 ITEM_POINTS_TIME = 2 * FPS
+
+def init_characters():
+
+    global GAME_FLOW, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, ACC, FACE
+    global PACMAN_SPRITE_IDX, PACMAN_SKIP_FRAMES, PACMAN_SPEED
+    global G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_ACC, G_FACE, G_SPRITE_IDX, G_SPEED
+    
+    # pacman
+    ROW = 26
+    COL = 13
+    OFFSET_X = 4
+    OFFSET_Y = 0
+    DX = -1
+    DY = 0
+    ACC = 0
+    FACE = LEFT
+    PACMAN_SPRITE_IDX = 0
+    PACMAN_SKIP_FRAMES = 0
+    PACMAN_SPEED = PACMAN_SPEED_NORMAL[LEVEL] * MAX_SPEED
+
+    # ghosts
+    G_ROW = [14, 14, 14, 14]
+    G_COL = [13, 15, 11, 17]
+    G_OFF_X = [4, 4, 4, 4]
+    G_OFF_Y = [0, 0, 0, 0]
+    G_DX = [-1, -1, 1, 1]
+    G_DY = [0, 0, 0, 0]
+    G_ACC = [0, 0, 0, 0]
+    G_FACE = [LEFT, LEFT, RIGHT, RIGHT]
+    G_SPRITE_IDX = [0, 0, 0, 0]
+    G_SPEED = [G_SPEED_NORMAL[LEVEL] * MAX_SPEED] * 4
+
+    # play game
+    GAME_FLOW = "PLAY"
+
+def init_level():
+    global GAME_FLOW, MAZE, PELLETS, ITEM_LIST
+
+    # copy data from original maze to the game's maze
+    MAZE = []
+    for row in ORIGINAL_MAZE:
+        temp_row = []
+        for value in row:
+            temp_row.append(value)
+        MAZE.append(temp_row)
+
+    # pellets
+    PELLETS = 0
+
+    # item list
+    ITEM_LIST = []
+    for i in range(max(0, LEVEL - 6), LEVEL + 1, 1): ITEM_LIST.append(ITEMS[i])
+
+    # initialize characters
+    GAME_FLOW = "INIT_CHARACTERS"
 
 def move_ghosts():
 
@@ -554,6 +562,32 @@ def poll_events():
             if event.key == pygame.K_ESCAPE:
                 RUNNING = False
 
+def setup_new_game():
+    global GAME_FLOW, LEVEL, LIVES, SCORE, HIGH_SCORE
+    global SCORE_BLINK_COUNTER, SCORE_BLINK_HALF_TIME, SCORE_BLINK_FULL_TIME
+    global NRG_BLINK_COUNTER, NRG_BLINK_HALF_TIME, NRG_BLINK_FULL_TIME
+
+    # level
+    LEVEL = 0
+
+    # lives
+    LIVES = 3
+
+    # score
+    SCORE = 0
+    HIGH_SCORE = 0
+    SCORE_BLINK_COUNTER = 0
+    SCORE_BLINK_FULL_TIME = 48  # number of frames for a full cycle
+    SCORE_BLINK_HALF_TIME = int(SCORE_BLINK_FULL_TIME // 2)
+
+    # energizers
+    NRG_BLINK_COUNTER = 0
+    NRG_BLINK_FULL_TIME = 30  # number of frames for a full cycle
+    NRG_BLINK_HALF_TIME = int(NRG_BLINK_FULL_TIME // 2)
+
+    # initialize level
+    GAME_FLOW = "INIT_LEVEL"
+
 def type(string, row, col):
     text = FONT.render(string, False, "#dedeff")
     SCREEN.blit(text, (col * TILE_SIZE, row * TILE_SIZE))
@@ -576,23 +610,31 @@ def wall_collision(row, col):
     return collision
 
 def main():
-    global RUNNING
-    
+
     while RUNNING:
-        poll_events()
-        clear_screen()
-        move_pacman()
-        move_ghosts()
-        draw_maze()
-        handle_bonus_item()
-        draw_pacman()
-        draw_ghosts()
-        draw_score()
-        draw_highscore()
-        draw_remaining_lives()
-        draw_bonus_items()
-        update_timers()
-        display_current_frame()
+        
+        match GAME_FLOW:
+            case "NEW_GAME":
+                setup_new_game()
+            case "INIT_LEVEL":
+                init_level()
+            case "INIT_CHARACTERS":
+                init_characters()
+            case "PLAY":
+                poll_events()
+                clear_screen()
+                move_pacman()
+                move_ghosts()
+                draw_maze()
+                handle_bonus_item()
+                draw_pacman()
+                draw_ghosts()
+                draw_score()
+                draw_highscore()
+                draw_remaining_lives()
+                draw_bonus_items()
+                update_timers()
+                display_current_frame()
 
     pygame.mouse.set_visible(True)
     pygame.quit()
