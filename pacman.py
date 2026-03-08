@@ -65,7 +65,7 @@ TILE_SIZE = ORIGINAL_TILE_SIZE * ZOOM
 HALF_TILE = int(TILE_SIZE // 2)
 DOUBLE_TILE = TILE_SIZE * 2
 TILES = []
-for i in range(36):
+for i in range(72):
     TILES.append(pygame.transform.scale(pygame.image.load("images/maze/" + str(i).zfill(2) + ".png"), (TILE_SIZE, TILE_SIZE)))
 
 # sprites 
@@ -199,11 +199,8 @@ def draw_bonus_items():
             SCREEN.blit(SPRITES[ITEM_LIST[item]], (col * TILE_SIZE, 34 * TILE_SIZE))
 
 def draw_ghosts():
-    global G_SPRITE_IDX
     for i in range(len(G)):
         SCREEN.blit(SPRITES[G_ANIM[i][G_FACE[i]][G_SPRITE_IDX[i]]], (G[i].x - HALF_TILE, G[i].y - HALF_TILE))
-        G_SPRITE_IDX[i] += 1
-        if G_SPRITE_IDX[i] == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX[i] = 0
 
 def draw_highscore():
     type("HIGH SCORE", 0, 9)
@@ -227,15 +224,22 @@ def draw_score():
     else:
         type(str(SCORE).rjust(7, " "), 1, 0)
 
-def draw_maze():
-    # draw maze
+def draw_maze(mode = -1):
+    # mode: -1 = draw normal, 0 = draw only blue walls, 1 = draw only white walls
     for i, row in enumerate(MAZE):
         for j, tile in enumerate(row):
-            if tile == 2: # energizer
-                if NRG_BLINK_COUNTER < NRG_BLINK_HALF_TIME:
-                    SCREEN.blit(TILES[tile], (j * TILE_SIZE, i * TILE_SIZE))    
-            elif tile > 0:
-                SCREEN.blit(TILES[tile], (j * TILE_SIZE, i * TILE_SIZE))
+            if mode == -1:
+                if tile == 2: # energizer
+                    if NRG_BLINK_COUNTER < NRG_BLINK_HALF_TIME:
+                        SCREEN.blit(TILES[tile], (j * TILE_SIZE, i * TILE_SIZE))    
+                elif tile > 0:
+                    SCREEN.blit(TILES[tile], (j * TILE_SIZE, i * TILE_SIZE))
+            elif mode == 0:
+                if tile > 2 and tile != 27:
+                    SCREEN.blit(TILES[tile], (j * TILE_SIZE, i * TILE_SIZE))
+            elif mode == 1:
+                if tile > 2 and tile != 27:
+                    SCREEN.blit(TILES[tile + 36], (j * TILE_SIZE, i * TILE_SIZE))
 
 def handle_bonus_item():
     global ITEM_VISIBLE, ITEM_DISPLAY_TIME, ITEM_POINTS_TIME, SCORE
@@ -324,7 +328,7 @@ def init_level():
 
 def move_ghosts():
 
-    global G_ACC, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_FACE, G_SPEED
+    global G_ACC, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_FACE, G_SPEED, G_SPRITE_IDX
 
     # move ghosts
     for i in range(len(G)):
@@ -409,6 +413,10 @@ def move_ghosts():
             else:
                 G_SPEED[i] = G_SPEED_NORMAL[LEVEL] * SPEED_UNIT
 
+            # animate ghost
+            G_SPRITE_IDX[i] += 1
+            if G_SPRITE_IDX[i] == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX[i] = 0
+
             # update ghost position
             G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
             G[i].y = G_ROW[i] * TILE_SIZE + G_OFF_Y[i] * SPEED_UNIT
@@ -418,7 +426,7 @@ def move_ghosts():
 
 def move_pacman():
 
-    global ACC, PACMAN_SPEED, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, FACE
+    global ACC, PACMAN_SPEED, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, FACE, GAME_FLOW
     global MAZE, PELLETS, SCORE, HIGH_SCORE, PACMAN_SKIP_FRAMES, PACMAN_SPRITE_IDX, ITEM_VISIBLE
 
     # add pacman's speed to the fractional accumulator
@@ -476,6 +484,7 @@ def move_pacman():
                     SCORE += 10
                     if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
                     PELLETS += 1
+                    if PELLETS == 244: GAME_FLOW = "NEXT_LEVEL"
                     if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
                         ITEM_VISIBLE = True
                     PACMAN_SKIP_FRAMES += 1
@@ -485,6 +494,7 @@ def move_pacman():
                     SCORE += 50
                     if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
                     PELLETS += 1
+                    if PELLETS == 244: GAME_FLOW = "NEXT_LEVEL"
                     if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
                         ITEM_VISIBLE = True
                     PACMAN_SKIP_FRAMES += 3
@@ -547,6 +557,54 @@ def move_pacman():
         
         # reduce fractional accumulator by speed unit
         ACC -= SPEED_UNIT
+
+def next_level():
+    global LEVEL
+
+    # pause for 1 second
+    frame_counter = 0
+    while frame_counter < FPS:
+        poll_events()
+        clear_screen()
+        draw_maze()
+        draw_pacman()
+        draw_ghosts()
+        draw_score()
+        draw_highscore()
+        draw_remaining_lives()
+        draw_bonus_items()
+        update_timers()
+        display_current_frame()
+        frame_counter += 1
+
+    # flash the maze 4 times
+    frame_counter = 0
+    flash_counter = 0
+    drawing_mode = 1
+
+    while frame_counter < 112:
+        poll_events()
+        clear_screen()
+        draw_maze(drawing_mode)
+        draw_pacman()
+        draw_score()
+        draw_highscore()
+        draw_remaining_lives()
+        draw_bonus_items()
+        update_timers()
+        display_current_frame()
+        if flash_counter < 14:
+            flash_counter += 1
+        else:
+            flash_counter = 0
+            drawing_mode = 1 - drawing_mode
+        frame_counter += 1
+
+    # advance to the next level
+    LEVEL += 1
+
+    # initialize next level
+    init_level()
 
 def poll_events():
     global RUNNING
@@ -635,6 +693,8 @@ def main():
                 draw_bonus_items()
                 update_timers()
                 display_current_frame()
+            case "NEXT_LEVEL":
+                next_level()
 
     pygame.mouse.set_visible(True)
     pygame.quit()
