@@ -76,11 +76,20 @@ for i in range(125):
 # font
 FONT = pygame.font.Font("font/press_start_2p.ttf", TILE_SIZE)
 
+# colors
+ORANGE = "#FFB851"
+CYAN = "#00FFFF"
+PINK = "#FFB8AE"
+MAGENTA = "#FFB8FF"
+
 # directions
 UP = 0
 DOWN = 1
 LEFT = 2
 RIGHT = 3
+
+# faces
+DEATH = 4
 
 # pacman
 PACMAN = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
@@ -90,6 +99,11 @@ PACMAN_ANIM = [
     [14, 14, 14, 15, 15, 15, 2, 2, 2, 15, 15, 15],  # left
     [0, 0, 0, 1, 1, 1, 2, 2, 2, 1, 1, 1],           # right
 ]
+death_anim = []
+for sprite in range(3, 14):
+    for i in range(8):
+        death_anim.append(sprite)
+PACMAN_ANIM.append(death_anim)
 
 # pacman's normal speed table
 PACMAN_SPEED_NORMAL = [0.80]
@@ -164,6 +178,13 @@ G_SPEED_TUNNEL.extend([0.50] * 252)
 G_SPEED_FRIGHT = [0.50, 0.55, 0.55, 0.55]
 G_SPEED_FRIGHT.extend([0.60] * 252)
 
+# score
+SCORE = 0
+HIGH_SCORE = 0
+SCORE_BLINK_COUNTER = 0
+SCORE_BLINK_FULL_TIME = 48  # number of frames for a full cycle
+SCORE_BLINK_HALF_TIME = int(SCORE_BLINK_FULL_TIME // 2)
+
 # screen
 SCREEN_WIDTH = MAZE_WIDTH * TILE_SIZE
 SCREEN_HEIGHT = MAZE_HEIGHT * TILE_SIZE
@@ -176,7 +197,7 @@ CLOCK = pygame.time.Clock()
 
 # main loop control
 RUNNING = True
-GAME_FLOW = "NEW_GAME"
+GAME_FLOW = "PRESS_START"
 
 ############################
 # functions and procedures #
@@ -187,6 +208,66 @@ def calculate_distance(start_pos, end_pos):
 
 def clear_screen():
     SCREEN.fill("black")
+
+def death_sequence():
+
+    global FACE, PACMAN_SPRITE_IDX, LIVES, GAME_FLOW
+
+    # pause for 1 second
+    frame_counter = 0
+    while frame_counter < FPS:
+        poll_events()
+        clear_screen()
+        draw_maze()
+        draw_pacman()
+        draw_ghosts()
+        draw_score()
+        draw_highscore()
+        draw_remaining_lives()
+        draw_bonus_items()
+        update_timers()
+        display_current_frame()
+        frame_counter += 1
+    
+    # play death sequence
+    FACE = DEATH
+    PACMAN_SPRITE_IDX = 0
+    while PACMAN_SPRITE_IDX < len(PACMAN_ANIM[DEATH]):
+        poll_events()
+        clear_screen()
+        draw_maze()
+        draw_pacman()
+        draw_score()
+        draw_highscore()
+        draw_remaining_lives()
+        draw_bonus_items()
+        update_timers()
+        display_current_frame()
+        PACMAN_SPRITE_IDX += 1
+    
+    # pause for another 1 second
+    frame_counter = 0
+    while frame_counter < FPS:
+        poll_events()
+        clear_screen()
+        draw_maze()
+        draw_score()
+        draw_highscore()
+        draw_remaining_lives()
+        draw_bonus_items()
+        update_timers()
+        display_current_frame()
+        frame_counter += 1
+    
+    # reduce pacman lives by 1
+    LIVES -= 1
+
+    if LIVES == 0:
+        # end game
+        GAME_FLOW = "GAME_OVER"
+    else:
+        # reset pacman and ghosts
+        GAME_FLOW = "INIT_CHARACTERS"
 
 def display_current_frame():
     pygame.display.flip()   # display current frame
@@ -240,6 +321,26 @@ def draw_maze(mode = -1):
             elif mode == 1:
                 if tile > 2 and tile != 27:
                     SCREEN.blit(TILES[tile + 36], (j * TILE_SIZE, i * TILE_SIZE))
+
+def game_over():
+    global GAME_FLOW
+
+    # display game over and pause 5 second
+    frame_counter = 0
+    while frame_counter < 5 * FPS:
+        poll_events()
+        clear_screen()
+        draw_maze()
+        draw_score()
+        draw_highscore()
+        draw_remaining_lives()
+        draw_bonus_items()
+        type("GAME  OVER", 20, 9, "red")
+        update_timers()
+        display_current_frame()
+        frame_counter += 1
+
+    GAME_FLOW = "PRESS_START"
 
 def handle_bonus_item():
     global ITEM_VISIBLE, ITEM_DISPLAY_TIME, ITEM_POINTS_TIME, SCORE
@@ -328,7 +429,8 @@ def init_level():
 
 def move_ghosts():
 
-    global G_ACC, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_FACE, G_SPEED, G_SPRITE_IDX
+    global G_ACC, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY
+    global G_FACE, G_SPEED, G_SPRITE_IDX, GAME_FLOW
 
     # move ghosts
     for i in range(len(G)):
@@ -420,6 +522,10 @@ def move_ghosts():
             # update ghost position
             G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
             G[i].y = G_ROW[i] * TILE_SIZE + G_OFF_Y[i] * SPEED_UNIT
+
+            # collision with pacman
+            if G[i].colliderect(PACMAN):
+                GAME_FLOW = "DEATH"
 
             # reduce fractional accumulator by speed unit
             G_ACC[i] -= SPEED_UNIT
@@ -607,7 +713,7 @@ def next_level():
     init_level()
 
 def poll_events():
-    global RUNNING
+    global RUNNING, GAME_FLOW
 
     # poll for events
     for event in pygame.event.get():
@@ -619,6 +725,18 @@ def poll_events():
             # ESC key --> quit
             if event.key == pygame.K_ESCAPE:
                 RUNNING = False
+            elif GAME_FLOW == "PRESS_START": GAME_FLOW = "NEW_GAME"
+
+def press_start():
+    poll_events()
+    clear_screen()
+    type("PUSH ANY KEY TO START", 16, 4, ORANGE)
+    type("1 PLAYER ONLY", 20, 8, CYAN)
+    type("BONUS PAC-MAN FOR 10000 PTS", 24, 1, PINK)
+    type("(C) 1980 MIDWAY MFG. CO.", 28, 2, MAGENTA)
+    draw_score()
+    draw_highscore()
+    display_current_frame()
 
 def setup_new_game():
     global GAME_FLOW, LEVEL, LIVES, SCORE, HIGH_SCORE
@@ -633,7 +751,6 @@ def setup_new_game():
 
     # score
     SCORE = 0
-    HIGH_SCORE = 0
     SCORE_BLINK_COUNTER = 0
     SCORE_BLINK_FULL_TIME = 48  # number of frames for a full cycle
     SCORE_BLINK_HALF_TIME = int(SCORE_BLINK_FULL_TIME // 2)
@@ -646,8 +763,8 @@ def setup_new_game():
     # initialize level
     GAME_FLOW = "INIT_LEVEL"
 
-def type(string, row, col):
-    text = FONT.render(string, False, "#dedeff")
+def type(string, row, col, color = "#dedeff"):
+    text = FONT.render(string, False, color)
     SCREEN.blit(text, (col * TILE_SIZE, row * TILE_SIZE))
 
 def update_timers():
@@ -672,6 +789,8 @@ def main():
     while RUNNING:
         
         match GAME_FLOW:
+            case "PRESS_START":
+                press_start()
             case "NEW_GAME":
                 setup_new_game()
             case "INIT_LEVEL":
@@ -695,6 +814,10 @@ def main():
                 display_current_frame()
             case "NEXT_LEVEL":
                 next_level()
+            case "DEATH":
+                death_sequence()
+            case "GAME_OVER":
+                game_over()
 
     pygame.mouse.set_visible(True)
     pygame.quit()
