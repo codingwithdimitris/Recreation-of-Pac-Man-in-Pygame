@@ -143,7 +143,7 @@ ITEM.y = 20 * TILE_SIZE - HALF_TILE
 G = []
 for i in range(4):
     G.append(pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE))
-G_TARGET = [(0, 25), (0, 2), (34, 27), (34, 0)]
+G_FIXED_TARGET = [(0, 25), (0, 2), (34, 27), (34, 0)]
 G_ANIM = [
     [   # blinky
         [45, 45, 45, 45, 45, 45, 45, 45, 46, 46, 46, 46, 46, 46, 46, 46], # up
@@ -182,6 +182,13 @@ G_SPEED_TUNNEL.extend([0.50] * 252)
 # ghost speed table when in frightened mode
 G_SPEED_FRIGHT = [0.50, 0.55, 0.55, 0.55]
 G_SPEED_FRIGHT.extend([0.60] * 252)
+
+# mode (scatter - chase)
+MODE_TABLE = ["SCATTER", "CHASE", "SCATTER", "CHASE", "SCATTER", "CHASE", "SCATTER", "CHASE"]
+MODE_DURATION = []
+MODE_DURATION.extend([[7, 20, 7, 20, 5, 20, 5, -1]] * 1)
+MODE_DURATION.extend([[7, 20, 7, 20, 5, 1033, 1 / FPS, -1]] * 3)
+MODE_DURATION.extend([[5, 20, 5, 20, 5, 1037, 1 / FPS, -1]] * 252)
 
 # score
 SCORE = 0
@@ -308,6 +315,50 @@ def game_over():
 
     GAME_FLOW = "PRESS_START"
 
+def get_ready():
+    global GAME_FLOW, LIVES
+
+    # if game starts for first time
+    if LEVEL == 0 and PELLETS == 0:
+
+        # wait for 2 seconds
+        frame_counter = 0
+        while frame_counter < 2 * FPS and GAME_FLOW == "GET_READY":
+            poll_events()
+            clear_screen()
+            draw_maze()
+            draw_score()
+            draw_highscore()
+            draw_remaining_lives()
+            draw_bonus_items()
+            type("PLAYER ONE", 14, 9, CYAN)
+            type("READY!", 20, 11, "yellow")
+            update_timers()
+            display_current_frame()
+            frame_counter += 1
+        
+        # subtract one life from lives counter
+        LIVES -= 1
+
+    # wait for another 2 seconds
+    frame_counter = 0
+    while frame_counter < 2 * FPS and GAME_FLOW == "GET_READY":
+        poll_events()
+        clear_screen()
+        draw_maze()
+        draw_pacman()
+        draw_ghosts()
+        draw_score()
+        draw_highscore()
+        draw_remaining_lives()
+        draw_bonus_items()
+        type("READY!", 20, 11, "yellow")
+        update_timers()
+        display_current_frame()
+        frame_counter += 1
+
+    GAME_FLOW = "PLAY"   
+
 def handle_bonus_item():
     global ITEM_VISIBLE, ITEM_DISPLAY_TIME, ITEM_POINTS_TIME, SCORE
 
@@ -342,7 +393,9 @@ def init_characters():
 
     global GAME_FLOW, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, ACC, FACE
     global PACMAN_SPRITE_IDX, PACMAN_SKIP_FRAMES, PACMAN_SPEED
-    global G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_ACC, G_FACE, G_SPRITE_IDX, G_SPEED
+    global G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_ACC
+    global G_FACE, G_SPRITE_IDX, G_SPEED, G_CHANGE_DIR
+    global MODE_INDEX, MODE, MODE_TIME
     
     # pacman
     ROW = 26
@@ -356,6 +409,8 @@ def init_characters():
     PACMAN_SPRITE_IDX = 0
     PACMAN_SKIP_FRAMES = 0
     PACMAN_SPEED = PACMAN_SPEED_NORMAL[LEVEL] * MAX_SPEED
+    PACMAN.x = COL * TILE_SIZE + OFFSET_X * SPEED_UNIT
+    PACMAN.y = ROW * TILE_SIZE + OFFSET_Y * SPEED_UNIT
 
     # ghosts
     G_ROW = [14, 14, 14, 14]
@@ -367,10 +422,19 @@ def init_characters():
     G_ACC = [0, 0, 0, 0]
     G_FACE = [LEFT, LEFT, RIGHT, RIGHT]
     G_SPRITE_IDX = [0, 0, 0, 0]
+    G_CHANGE_DIR = [False, False, False, False]
     G_SPEED = [G_SPEED_NORMAL[LEVEL] * MAX_SPEED] * 4
+    for i in range(len(G)):
+        G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
+        G[i].y = G_ROW[i] * TILE_SIZE + G_OFF_Y[i] * SPEED_UNIT
+
+    # set mode (scatter - chase)
+    MODE_INDEX = 0
+    MODE = MODE_TABLE[MODE_INDEX]
+    MODE_TIME = MODE_DURATION[LEVEL][MODE_INDEX] * FPS
 
     # play game
-    GAME_FLOW = "PLAY"
+    GAME_FLOW = "GET_READY"
 
 def init_level():
     global GAME_FLOW, MAZE, PELLETS, ITEM_LIST
@@ -474,13 +538,51 @@ def move_ghosts():
                 # if ghost is on a junction point
                 if G_OFF_X[i] == 0 and G_OFF_Y[i] == 0:
 
+                    # change direction if mode has changed
+                    if G_CHANGE_DIR[i]:
+                        G_DX[i] *= -1
+                        G_DY[i] *= -1
+                        G_CHANGE_DIR[i] = False
+
                     # distance from each direction to the target tile (up, down,left, right)
                     # -1 means that distance is not available
                     dist = [-1] * 4
 
                     # target tile
-                    target = G_TARGET[i]
-                    #target = (ROW, COL)
+                    if MODE == "SCATTER":
+                        target = G_FIXED_TARGET[i]
+                    elif MODE == "CHASE":
+                        match i:
+                            # blinky
+                            case 0:
+                                # target --> pacman's tile
+                                target = (ROW, COL)
+                            # pinky
+                            case 1:
+                                # target --> four tiles forward to pacman's tile
+                                target = (ROW + DY * 4, COL + DX * 4)
+                                # exception when pacman is facing up: four tiles forward + four tiles to the left
+                                if DY == -1:
+                                    target = (target[0], target[1] - 4)
+                            # inky
+                            case 2:
+                                # target --> T = B + 2 * (Poff - B)
+                                # T: target, B: blinky's tile, Poff: pacman's tile with a 2-tiles forward offset
+                                blinky_tile = (G_ROW[0], G_COL[0])
+                                pacman_tile = (ROW + DY * 2, COL + DX * 2)
+                                vector = (pacman_tile[0] - blinky_tile[0], pacman_tile[1] - blinky_tile[1])
+                                target = (blinky_tile[0] + 2 * vector[0], blinky_tile[1] + 2 * vector[1])
+                            # clyde
+                            case 3:
+                                # calculate euclidean distance between clyde and pacman
+                                # if distance is eight or more tiles, target pacman's tile, else, target clyde's fixed tile
+                                clyde_tile = (G_ROW[3], G_COL[3])
+                                pacman_tile = (ROW, COL)
+                                distance = calculate_distance(clyde_tile, pacman_tile)
+                                if distance >= 8:
+                                    target = pacman_tile
+                                else:
+                                    target = G_FIXED_TARGET[3]
 
                     # calculate distances
                     if not wall_collision(G_ROW[i] - 1, G_COL[i]) and not G_DY[i] == 1:
@@ -783,7 +885,7 @@ def setup_new_game():
     LEVEL = 0
 
     # lives
-    LIVES = 3
+    LIVES = 4
 
     # score
     SCORE = 0
@@ -805,12 +907,26 @@ def type(string, row, col, color = "#dedeff"):
 
 def update_timers():
     global SCORE_BLINK_COUNTER, NRG_BLINK_COUNTER
+    global MODE, MODE_INDEX, MODE_TIME, G_CHANGE_DIR
 
-    # blinking items
+    # 1UP blinking
     SCORE_BLINK_COUNTER += 1
     if SCORE_BLINK_COUNTER == SCORE_BLINK_FULL_TIME: SCORE_BLINK_COUNTER = 0
-    NRG_BLINK_COUNTER += 1
-    if NRG_BLINK_COUNTER == NRG_BLINK_FULL_TIME: NRG_BLINK_COUNTER = 0
+
+    # power pellets blinking
+    if GAME_FLOW == "PLAY" or GAME_FLOW == "LOST_LIFE":
+        NRG_BLINK_COUNTER += 1
+        if NRG_BLINK_COUNTER == NRG_BLINK_FULL_TIME: NRG_BLINK_COUNTER = 0
+    
+    # mode
+    if GAME_FLOW == "PLAY":
+        if MODE_DURATION[LEVEL][MODE_INDEX] != -1:
+            MODE_TIME -= 1
+            if MODE_TIME == 0:
+                MODE_INDEX += 1
+                MODE = MODE_TABLE[MODE_INDEX]
+                MODE_TIME = MODE_DURATION[LEVEL][MODE_INDEX] * FPS
+                G_CHANGE_DIR = [True, True, True, True]
 
 def wall_collision(row, col):
     collision = False
@@ -833,6 +949,8 @@ def main():
                 init_level()
             case "INIT_CHARACTERS":
                 init_characters()
+            case "GET_READY":
+                get_ready()
             case "PLAY":
                 poll_events()
                 clear_screen()
