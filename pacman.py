@@ -75,7 +75,7 @@ for i in range(125):
 
 # symbols
 SYMBOLS = []
-for i in range(4):
+for i in range(5):
     SYMBOLS.append(pygame.transform.scale(pygame.image.load("images/symbols/" + str(i).zfill(2) + ".png"), (TILE_SIZE, TILE_SIZE)))
 
 # font
@@ -130,8 +130,6 @@ ITEM_POINTS = [100, 300, 500, 500, 700, 700, 1000, 1000, 2000, 2000, 3000, 3000]
 ITEM_POINTS.extend([5000] * 244)
 ITEM_POINTS_SPRITE = [98, 99, 100, 100, 101, 101, 102, 102, 109, 109, 115, 115]
 ITEM_POINTS_SPRITE.extend([121] * 244)
-ITEM_DISPLAY_TIME = 10 * FPS        # number of frames that item stays on screen (10 sec)
-ITEM_POINTS_TIME = 2 * FPS          # number of frames that points stays on screen (2 sec)
 ITEM_PELLETS1 = 70                  # show item after ITEM_PELLETS1 pellets eaten
 ITEM_PELLETS2 = 140                 # show item after ITEM_PELLETS2 pellets eaten
 ITEM_VISIBLE = False                # true when item is visible
@@ -233,7 +231,7 @@ def draw_bonus_items():
 
 def draw_ghosts():
     for i in range(len(G)):
-        SCREEN.blit(SPRITES[G_ANIM[i][G_FACE[i]][G_SPRITE_IDX[i]]], (G[i].x - HALF_TILE, G[i].y - HALF_TILE))
+        SCREEN.blit(SPRITES[G_ANIM[i][G_FACE[i]][G_SPRITE_IDX]], (G[i].x - HALF_TILE, G[i].y - HALF_TILE))
 
 def draw_highscore():
     type("HIGH SCORE", 0, 9)
@@ -332,7 +330,8 @@ def get_ready():
             draw_remaining_lives()
             draw_bonus_items()
             type("PLAYER ONE", 14, 9, CYAN)
-            type("READY!", 20, 11, "yellow")
+            type("READY", 20, 11, "yellow")
+            SCREEN.blit(SYMBOLS[4], (16 * TILE_SIZE, 20 * TILE_SIZE))
             update_timers()
             display_current_frame()
             frame_counter += 1
@@ -352,7 +351,8 @@ def get_ready():
         draw_highscore()
         draw_remaining_lives()
         draw_bonus_items()
-        type("READY!", 20, 11, "yellow")
+        type("READY", 20, 11, "yellow")
+        SCREEN.blit(SYMBOLS[4], (16 * TILE_SIZE, 20 * TILE_SIZE))
         update_timers()
         display_current_frame()
         frame_counter += 1
@@ -368,7 +368,7 @@ def handle_bonus_item():
             SCREEN.blit(SPRITES[ITEMS[LEVEL]], (ITEM.x, ITEM.y))
             ITEM_DISPLAY_TIME -= 1
             if ITEM_DISPLAY_TIME == 0:
-                ITEM_DISPLAY_TIME = 10 * FPS
+                ITEM_DISPLAY_TIME = int(random.uniform(9, 10) * FPS)
                 ITEM_POINTS_TIME = 2 * FPS
                 ITEM_VISIBLE = False
             # check collision with pacman
@@ -386,7 +386,7 @@ def handle_bonus_item():
                 ITEM_POINTS_TIME -= 1
             else:
                 ITEM_VISIBLE = False
-                ITEM_DISPLAY_TIME = 10 * FPS
+                ITEM_DISPLAY_TIME = int(random.uniform(9, 10) * FPS)
                 ITEM_POINTS_TIME = 2 * FPS
 
 def init_characters():
@@ -394,8 +394,8 @@ def init_characters():
     global GAME_FLOW, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, ACC, FACE
     global PACMAN_SPRITE_IDX, PACMAN_SKIP_FRAMES, PACMAN_SPEED
     global G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_ACC
-    global G_FACE, G_SPRITE_IDX, G_SPEED, G_CHANGE_DIR
-    global MODE_INDEX, MODE, MODE_TIME
+    global G_FACE, G_SPRITE_IDX, G_SPEED, G_REVERSE_DIR
+    global MODE_INDEX, MODE, MODE_TIME, ITEM_DISPLAY_TIME, ITEM_POINTS_TIME
     
     # pacman
     ROW = 26
@@ -406,7 +406,7 @@ def init_characters():
     DY = 0
     ACC = 0
     FACE = LEFT
-    PACMAN_SPRITE_IDX = 0
+    PACMAN_SPRITE_IDX = 6
     PACMAN_SKIP_FRAMES = 0
     PACMAN_SPEED = PACMAN_SPEED_NORMAL[LEVEL] * MAX_SPEED
     PACMAN.x = COL * TILE_SIZE + OFFSET_X * SPEED_UNIT
@@ -421,8 +421,8 @@ def init_characters():
     G_DY = [0, 0, 0, 0]
     G_ACC = [0, 0, 0, 0]
     G_FACE = [LEFT, LEFT, RIGHT, RIGHT]
-    G_SPRITE_IDX = [0, 0, 0, 0]
-    G_CHANGE_DIR = [False, False, False, False]
+    G_SPRITE_IDX = 0
+    G_REVERSE_DIR = [False, False, False, False]
     G_SPEED = [G_SPEED_NORMAL[LEVEL] * MAX_SPEED] * 4
     for i in range(len(G)):
         G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
@@ -432,6 +432,10 @@ def init_characters():
     MODE_INDEX = 0
     MODE = MODE_TABLE[MODE_INDEX]
     MODE_TIME = MODE_DURATION[LEVEL][MODE_INDEX] * FPS
+
+    # bonus item
+    ITEM_DISPLAY_TIME = int(random.uniform(9, 10) * FPS)    # number of frames that item stays on screen (10 sec)
+    ITEM_POINTS_TIME = 2 * FPS                              # number of frames that points stays on screen (2 sec)
 
     # play game
     GAME_FLOW = "GET_READY"
@@ -538,19 +542,17 @@ def move_ghosts():
                 # if ghost is on a junction point
                 if G_OFF_X[i] == 0 and G_OFF_Y[i] == 0:
 
-                    # change direction if mode has changed
-                    if G_CHANGE_DIR[i]:
-                        G_DX[i] *= -1
-                        G_DY[i] *= -1
-                        G_CHANGE_DIR[i] = False
-
-                    # distance from each direction to the target tile (up, down,left, right)
-                    # -1 means that distance is not available
-                    dist = [-1] * 4
+                    # reverse direction if mode has changed
+                    if G_REVERSE_DIR[i]:
+                        G_DX[i] = -G_DX[i]
+                        G_DY[i] = -G_DX[i]
+                        G_REVERSE_DIR[i] = False
 
                     # target tile
                     if MODE == "SCATTER":
-                        target = G_FIXED_TARGET[i]
+                        dir = pick_shortest_path(G_FIXED_TARGET[i], G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                        G_DX[i] = dir[0]
+                        G_DY[i] = dir[1]
                     elif MODE == "CHASE":
                         match i:
                             # blinky
@@ -583,36 +585,10 @@ def move_ghosts():
                                     target = pacman_tile
                                 else:
                                     target = G_FIXED_TARGET[3]
-
-                    # calculate distances
-                    if not wall_collision(G_ROW[i] - 1, G_COL[i]) and not G_DY[i] == 1:
-                        if not((G_ROW[i] == 14 or G_ROW[i] == 26) and (G_COL[i] == 12 or G_COL[i] == 15)): 
-                            dist[0] = calculate_distance((G_ROW[i] - 1, G_COL[i]), target)
-                    if not wall_collision(G_ROW[i] + 1, G_COL[i]) and not G_DY[i] == -1: dist[1] = calculate_distance((G_ROW[i] + 1, G_COL[i]), target)
-                    if not wall_collision(G_ROW[i], G_COL[i] - 1) and not G_DX[i] == 1: dist[2] = calculate_distance((G_ROW[i], G_COL[i] - 1), target)
-                    if not wall_collision(G_ROW[i], G_COL[i] + 1) and not G_DX[i] == -1: dist[3] = calculate_distance((G_ROW[i], G_COL[i] + 1), target)
-
-                    # pick the path with the shortest distance
-                    min_val = min((i for i in dist if i != -1), default = None)
-                    if min_val != None:
-                        match dist.index(min_val):
-                            case 0:
-                                G_DX[i] = 0
-                                G_DY[i] = -1
-                                G_FACE[i] = UP
-                            case 1:
-                                G_DX[i] = 0
-                                G_DY[i] = 1
-                                G_FACE[i] = DOWN
-                            case 2:
-                                G_DX[i] = -1
-                                G_DY[i] = 0
-                                G_FACE[i] = LEFT
-                            case 3:
-                                G_DX[i] = 1
-                                G_DY[i] = 0
-                                G_FACE[i] = RIGHT
-
+                        dir = pick_shortest_path(target, G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                        G_DX[i] = dir[0]
+                        G_DY[i] = dir[1]
+                        
             # move ghost
             G_OFF_X[i] += G_DX[i]
             G_OFF_Y[i] += G_DY[i]
@@ -637,15 +613,18 @@ def move_ghosts():
                 G_COL[i] = MAZE_WIDTH
                 G_OFF_X[i] = 0
 
+            # select animation sequence
+            match (G_DX[i], G_DY[i]):
+                case ( 0, -1): G_FACE[i] = UP
+                case ( 0,  1): G_FACE[i] = DOWN
+                case (-1,  0): G_FACE[i] = LEFT
+                case ( 1,  0): G_FACE[i] = RIGHT
+
             # adjust ghost speed when entering a tunnel
             if G_ROW[i] == 17 and (G_COL[i] < 5 or G_COL[i] > 22):
-                G_SPEED[i] = G_SPEED_TUNNEL[LEVEL] * SPEED_UNIT
+                G_SPEED[i] = G_SPEED_TUNNEL[LEVEL] * MAX_SPEED
             else:
-                G_SPEED[i] = G_SPEED_NORMAL[LEVEL] * SPEED_UNIT
-
-            # animate ghost
-            G_SPRITE_IDX[i] += 1
-            if G_SPRITE_IDX[i] == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX[i] = 0
+                G_SPEED[i] = G_SPEED_NORMAL[LEVEL] * MAX_SPEED
 
             # update ghost position
             G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
@@ -657,6 +636,10 @@ def move_ghosts():
 
             # reduce fractional accumulator by speed unit
             G_ACC[i] -= SPEED_UNIT
+
+    # animate ghost
+    G_SPRITE_IDX += 1
+    if G_SPRITE_IDX == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX = 0
 
 def move_pacman():
 
@@ -844,6 +827,28 @@ def next_level():
         # initialize next level
         init_level()
 
+def pick_shortest_path(target, row, col, dx, dy):
+    # distance from each direction to the target tile (up, down,left, right)
+    # -1 means that distance is not available
+    dist = [-1] * 4
+
+    # calculate distances
+    if not wall_collision(row - 1, col) and not dy == 1:
+        if not((row == 14 or row == 26) and (col == 12 or col == 15)): 
+            dist[0] = calculate_distance((row - 1, col), target)
+    if not wall_collision(row + 1, col) and not dy == -1: dist[1] = calculate_distance((row + 1, col), target)
+    if not wall_collision(row, col - 1) and not dx == 1: dist[2] = calculate_distance((row, col - 1), target)
+    if not wall_collision(row, col + 1) and not dx == -1: dist[3] = calculate_distance((row, col + 1), target)
+
+    # pick the path with the shortest distance
+    min_val = min((i for i in dist if i != -1), default = None)
+    if min_val != None:
+        match dist.index(min_val):
+            case 0: return (0, -1)
+            case 1: return (0,  1)
+            case 2: return (-1, 0)
+            case 3: return ( 1, 0)
+
 def poll_events():
     global RUNNING, GAME_FLOW
 
@@ -907,7 +912,7 @@ def type(string, row, col, color = "#dedeff"):
 
 def update_timers():
     global SCORE_BLINK_COUNTER, NRG_BLINK_COUNTER
-    global MODE, MODE_INDEX, MODE_TIME, G_CHANGE_DIR
+    global MODE, MODE_INDEX, MODE_TIME, G_REVERSE_DIR
 
     # 1UP blinking
     SCORE_BLINK_COUNTER += 1
@@ -926,7 +931,7 @@ def update_timers():
                 MODE_INDEX += 1
                 MODE = MODE_TABLE[MODE_INDEX]
                 MODE_TIME = MODE_DURATION[LEVEL][MODE_INDEX] * FPS
-                G_CHANGE_DIR = [True, True, True, True]
+                G_REVERSE_DIR = [True, True, True, True]
 
 def wall_collision(row, col):
     collision = False
