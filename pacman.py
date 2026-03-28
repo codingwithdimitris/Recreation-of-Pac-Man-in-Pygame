@@ -147,25 +147,33 @@ G_ANIM = [
         [45, 45, 45, 45, 45, 45, 45, 45, 46, 46, 46, 46, 46, 46, 46, 46], # up
         [47, 47, 47, 47, 47, 47, 47, 47, 48, 48, 48, 48, 48, 48, 48, 48], # down
         [43, 43, 43, 43, 43, 43, 43, 43, 44, 44, 44, 44, 44, 44, 44, 44], # left
-        [41, 41, 41, 41, 41, 41, 41, 41, 42, 42, 42, 42, 42, 42, 42, 42]  # right
+        [41, 41, 41, 41, 41, 41, 41, 41, 42, 42, 42, 42, 42, 42, 42, 42], # right
+        [49, 49, 49, 49, 49, 49, 49, 49, 50, 50, 50, 50, 50, 50, 50, 50], # frightened blue
+        [51, 51, 51, 51, 51, 51, 51, 51, 52, 52, 52, 52, 52, 52, 52, 52], # frightened white
     ],
     [   # pinky
-        [57, 57, 57, 57, 57, 57, 57, 57, 58, 58, 58, 58, 58, 58, 58, 58],  # up
-        [59, 59, 59, 59, 59, 59, 59, 59, 60, 60, 60, 60, 60, 60, 60, 60],  # down
-        [55, 55, 55, 55, 55, 55, 55, 55, 56, 56, 56, 56, 56, 56, 56, 56],  # left
-        [53, 53, 53, 53, 53, 53, 53, 53, 54, 54, 54, 54, 54, 54, 54, 54]   # right
+        [57, 57, 57, 57, 57, 57, 57, 57, 58, 58, 58, 58, 58, 58, 58, 58], # up
+        [59, 59, 59, 59, 59, 59, 59, 59, 60, 60, 60, 60, 60, 60, 60, 60], # down
+        [55, 55, 55, 55, 55, 55, 55, 55, 56, 56, 56, 56, 56, 56, 56, 56], # left
+        [53, 53, 53, 53, 53, 53, 53, 53, 54, 54, 54, 54, 54, 54, 54, 54], # right
+        [49, 49, 49, 49, 49, 49, 49, 49, 50, 50, 50, 50, 50, 50, 50, 50], # frightened blue
+        [51, 51, 51, 51, 51, 51, 51, 51, 52, 52, 52, 52, 52, 52, 52, 52], # frightened white
     ],
     [   # inky
-        [69, 69, 69, 69, 69, 69, 69, 69, 70, 70, 70, 70, 70, 70, 70, 70],  # up
-        [71, 71, 71, 71, 71, 71, 71, 71, 72, 72, 72, 72, 72, 72, 72, 72],  # down
-        [67, 67, 67, 67, 67, 67, 67, 67, 68, 68, 68, 68, 68, 68, 68, 68],  # left
-        [65, 65, 65, 65, 65, 65, 65, 65, 66, 66, 66, 66, 66, 66, 66, 66]   # right
+        [69, 69, 69, 69, 69, 69, 69, 69, 70, 70, 70, 70, 70, 70, 70, 70], # up
+        [71, 71, 71, 71, 71, 71, 71, 71, 72, 72, 72, 72, 72, 72, 72, 72], # down
+        [67, 67, 67, 67, 67, 67, 67, 67, 68, 68, 68, 68, 68, 68, 68, 68], # left
+        [65, 65, 65, 65, 65, 65, 65, 65, 66, 66, 66, 66, 66, 66, 66, 66], # right
+        [49, 49, 49, 49, 49, 49, 49, 49, 50, 50, 50, 50, 50, 50, 50, 50], # frightened blue
+        [51, 51, 51, 51, 51, 51, 51, 51, 52, 52, 52, 52, 52, 52, 52, 52], # frightened white
     ],
     [   # clyde
-        [82, 82, 82, 82, 82, 82, 82, 82, 83, 83, 83, 83, 83, 83, 83, 83],  # up
-        [84, 84, 84, 84, 84, 84, 84, 84, 85, 85, 85, 85, 85, 85, 85, 85],  # down
-        [80, 80, 80, 80, 80, 80, 80, 80, 81, 81, 81, 81, 81, 81, 81, 81],  # left
-        [78, 78, 78, 78, 78, 78, 78, 78, 79, 79, 79, 79, 79, 79, 79, 79]   # right
+        [82, 82, 82, 82, 82, 82, 82, 82, 83, 83, 83, 83, 83, 83, 83, 83], # up
+        [84, 84, 84, 84, 84, 84, 84, 84, 85, 85, 85, 85, 85, 85, 85, 85], # down
+        [80, 80, 80, 80, 80, 80, 80, 80, 81, 81, 81, 81, 81, 81, 81, 81], # left
+        [78, 78, 78, 78, 78, 78, 78, 78, 79, 79, 79, 79, 79, 79, 79, 79], # right
+        [49, 49, 49, 49, 49, 49, 49, 49, 50, 50, 50, 50, 50, 50, 50, 50], # frightened blue
+        [51, 51, 51, 51, 51, 51, 51, 51, 52, 52, 52, 52, 52, 52, 52, 52], # frightened white
     ]
 ]
 
@@ -187,6 +195,12 @@ MODE_DURATION = []
 MODE_DURATION.extend([[7, 20, 7, 20, 5, 20, 5, -1]] * 1)
 MODE_DURATION.extend([[7, 20, 7, 20, 5, 1033, 1 / FPS, -1]] * 3)
 MODE_DURATION.extend([[5, 20, 5, 20, 5, 1037, 1 / FPS, -1]] * 252)
+
+# frightened mode
+FRIGHT_DURATION = [6, 5, 4, 3, 2, 5, 2, 2, 1, 5, 2, 1, 1, 3, 1, 1, 0, 1]
+FRIGHT_DURATION.extend([0] * 238)
+FRIGHT_FLASHES = [5, 5, 5, 5, 5, 5, 5, 5, 3, 5, 5, 3, 3, 5, 3, 3, 0 ,3]
+FRIGHT_FLASHES.extend([0] * 238)
 
 # score
 SCORE = 0
@@ -394,9 +408,16 @@ def init_characters():
     global GAME_FLOW, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, ACC, FACE
     global PACMAN_SPRITE_IDX, PACMAN_SKIP_FRAMES, PACMAN_SPEED
     global G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_ACC
-    global G_FACE, G_SPRITE_IDX, G_SPEED, G_REVERSE_DIR
-    global MODE_INDEX, MODE, MODE_TIME, ITEM_DISPLAY_TIME, ITEM_POINTS_TIME
-    
+    global G_FACE, G_SPRITE_IDX, G_SPEED, G_REVERSE_DIR, G_STATE
+    global MODE_INDEX, MODE, MODE_TIME, MODE_PREVIOUS
+    global ITEM_DISPLAY_TIME, ITEM_POINTS_TIME
+   
+    # mode
+    MODE_INDEX = 0
+    MODE = MODE_TABLE[MODE_INDEX]
+    MODE_PREVIOUS = None
+    MODE_TIME = MODE_DURATION[LEVEL][MODE_INDEX] * FPS
+
     # pacman
     ROW = 26
     COL = 13
@@ -423,18 +444,14 @@ def init_characters():
     G_FACE = [LEFT, LEFT, RIGHT, RIGHT]
     G_SPRITE_IDX = 0
     G_REVERSE_DIR = [False, False, False, False]
+    G_STATE = [MODE, MODE, MODE, MODE]
     G_SPEED = [G_SPEED_NORMAL[LEVEL] * MAX_SPEED] * 4
     for i in range(len(G)):
         G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
         G[i].y = G_ROW[i] * TILE_SIZE + G_OFF_Y[i] * SPEED_UNIT
 
-    # set mode (scatter - chase)
-    MODE_INDEX = 0
-    MODE = MODE_TABLE[MODE_INDEX]
-    MODE_TIME = MODE_DURATION[LEVEL][MODE_INDEX] * FPS
-
     # bonus item
-    ITEM_DISPLAY_TIME = int(random.uniform(9, 10) * FPS)    # number of frames that item stays on screen (10 sec)
+    ITEM_DISPLAY_TIME = int(random.uniform(9, 10) * FPS)    # number of frames that item stays on screen
     ITEM_POINTS_TIME = 2 * FPS                              # number of frames that points stays on screen (2 sec)
 
     # play game
@@ -524,7 +541,7 @@ def lost_life():
 def move_ghosts():
 
     global G_ACC, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY
-    global G_FACE, G_SPEED, G_SPRITE_IDX, GAME_FLOW
+    global G_FACE, G_SPEED, G_SPRITE_IDX, GAME_FLOW, G_STATE
 
     # move ghosts
     for i in range(len(G)):
@@ -549,11 +566,11 @@ def move_ghosts():
                         G_REVERSE_DIR[i] = False
 
                     # target tile
-                    if MODE == "SCATTER":
+                    if G_STATE[i] == "SCATTER":
                         dir = pick_shortest_path(G_FIXED_TARGET[i], G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
                         G_DX[i] = dir[0]
                         G_DY[i] = dir[1]
-                    elif MODE == "CHASE":
+                    elif G_STATE[i] == "CHASE":
                         match i:
                             # blinky
                             case 0:
@@ -585,10 +602,16 @@ def move_ghosts():
                                     target = pacman_tile
                                 else:
                                     target = G_FIXED_TARGET[3]
+                        # pick shortest path
                         dir = pick_shortest_path(target, G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
                         G_DX[i] = dir[0]
                         G_DY[i] = dir[1]
-                        
+                    elif G_STATE[i] == "FRIGHTENED":
+                        # pick random path
+                        dir = pick_random_path(G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                        G_DX[i] = dir[0]
+                        G_DY[i] = dir[1]
+
             # move ghost
             G_OFF_X[i] += G_DX[i]
             G_OFF_Y[i] += G_DY[i]
@@ -614,15 +637,23 @@ def move_ghosts():
                 G_OFF_X[i] = 0
 
             # select animation sequence
-            match (G_DX[i], G_DY[i]):
-                case ( 0, -1): G_FACE[i] = UP
-                case ( 0,  1): G_FACE[i] = DOWN
-                case (-1,  0): G_FACE[i] = LEFT
-                case ( 1,  0): G_FACE[i] = RIGHT
+            if G_STATE[i] in ["SCATTER", "CHASE"]:
+                match (G_DX[i], G_DY[i]):
+                    case ( 0, -1): G_FACE[i] = UP
+                    case ( 0,  1): G_FACE[i] = DOWN
+                    case (-1,  0): G_FACE[i] = LEFT
+                    case ( 1,  0): G_FACE[i] = RIGHT
+            elif G_STATE[i] == "FRIGHTENED":
+                if FRIGHT_FLASH_FRAME < 14:
+                    G_FACE[i] = 4
+                else:
+                    G_FACE[i] = 5
 
-            # adjust ghost speed when entering a tunnel
+            # adjust ghost speed
             if G_ROW[i] == 17 and (G_COL[i] < 5 or G_COL[i] > 22):
                 G_SPEED[i] = G_SPEED_TUNNEL[LEVEL] * MAX_SPEED
+            elif G_STATE[i] == "FRIGHTENED":
+                G_SPEED[i] = G_SPEED_FRIGHT[LEVEL] * MAX_SPEED
             else:
                 G_SPEED[i] = G_SPEED_NORMAL[LEVEL] * MAX_SPEED
 
@@ -632,19 +663,23 @@ def move_ghosts():
 
             # collision with pacman
             if G[i].colliderect(PACMAN):
-                GAME_FLOW = "LOST_LIFE"
+                if G_STATE[i] != "FRIGHTENED":
+                    GAME_FLOW = "LOST_LIFE"
 
             # reduce fractional accumulator by speed unit
             G_ACC[i] -= SPEED_UNIT
 
     # animate ghost
-    G_SPRITE_IDX += 1
-    if G_SPRITE_IDX == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX = 0
+    if GAME_FLOW == "PLAY":
+        G_SPRITE_IDX += 1
+        if G_SPRITE_IDX == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX = 0
 
 def move_pacman():
 
     global ACC, PACMAN_SPEED, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, FACE, GAME_FLOW
     global MAZE, PELLETS, SCORE, HIGH_SCORE, PACMAN_SKIP_FRAMES, PACMAN_SPRITE_IDX, ITEM_VISIBLE
+    global MODE, MODE_PREVIOUS, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
+    global G_STATE, G_REVERSE_DIR
 
     # add pacman's speed to the fractional accumulator
     ACC += PACMAN_SPEED
@@ -712,8 +747,15 @@ def move_pacman():
                     if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
                     PELLETS += 1
                     if PELLETS == 244: GAME_FLOW = "NEXT_LEVEL"
-                    if PELLETS == ITEM_PELLETS1 or PELLETS == ITEM_PELLETS2 and not ITEM_VISIBLE:
-                        ITEM_VISIBLE = True
+                    if PELLETS in [ITEM_PELLETS1, ITEM_PELLETS2] and not ITEM_VISIBLE: ITEM_VISIBLE = True
+                    if MODE != "FRIGHTENED": MODE_PREVIOUS = MODE
+                    MODE = "FRIGHTENED"
+                    FRIGHT_TOTAL_TIME = FRIGHT_DURATION[LEVEL] * FPS
+                    FRIGHT_FLASH_TIME = FRIGHT_FLASHES[LEVEL] * 28
+                    FRIGHT_FLASH_FRAME = 0
+                    G_REVERSE_DIR = [True, True, True, True]
+                    for i in range(len(G)):
+                        if G_STATE[i] in ["SCATTER", "CHASE"]: G_STATE[i] = MODE
                     PACMAN_SKIP_FRAMES += 3
 
                 # stop movement if there is a wall in front
@@ -827,6 +869,19 @@ def next_level():
         # initialize next level
         init_level()
 
+def pick_random_path(row, col, dx, dy):
+    # create a list for adding the free paths where the ghost can turn
+    can_turn = []
+
+    # look around, add all free path directions to the list
+    if not wall_collision(row - 1, col) and not dy == 1: can_turn.append((0, -1))
+    if not wall_collision(row + 1, col) and not dy == -1: can_turn.append((0, 1))
+    if not wall_collision(row, col - 1) and not dx == 1: can_turn.append((-1, 0))
+    if not wall_collision(row, col + 1) and not dx == -1: can_turn.append((1, 0))
+
+    # pick a random direction
+    return random.choice(can_turn)
+
 def pick_shortest_path(target, row, col, dx, dy):
     # distance from each direction to the target tile (up, down,left, right)
     # -1 means that distance is not available
@@ -912,9 +967,11 @@ def type(string, row, col, color = "#dedeff"):
 
 def update_timers():
     global SCORE_BLINK_COUNTER, NRG_BLINK_COUNTER
-    global MODE, MODE_INDEX, MODE_TIME, G_REVERSE_DIR
+    global MODE, MODE_INDEX, MODE_TIME, MODE_PREVIOUS
+    global G_STATE, G_REVERSE_DIR
+    global FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
 
-    # 1UP blinking
+    # 1up blinking
     SCORE_BLINK_COUNTER += 1
     if SCORE_BLINK_COUNTER == SCORE_BLINK_FULL_TIME: SCORE_BLINK_COUNTER = 0
 
@@ -925,13 +982,27 @@ def update_timers():
     
     # mode
     if GAME_FLOW == "PLAY":
-        if MODE_DURATION[LEVEL][MODE_INDEX] != -1:
-            MODE_TIME -= 1
-            if MODE_TIME == 0:
-                MODE_INDEX += 1
-                MODE = MODE_TABLE[MODE_INDEX]
-                MODE_TIME = MODE_DURATION[LEVEL][MODE_INDEX] * FPS
-                G_REVERSE_DIR = [True, True, True, True]
+        if MODE in ["SCATTER", "CHASE"]:
+            if MODE_DURATION[LEVEL][MODE_INDEX] != -1:
+                MODE_TIME -= 1
+                if MODE_TIME == 0:
+                    MODE_INDEX += 1
+                    MODE = MODE_TABLE[MODE_INDEX]
+                    MODE_TIME = MODE_DURATION[LEVEL][MODE_INDEX] * FPS
+                    for i in range(len(G)):
+                        if G_STATE[i] in ["SCATTER", "CHASE"]:
+                            G_STATE[i] = MODE
+                            G_REVERSE_DIR = [True, True, True, True]
+        elif MODE == "FRIGHTENED":
+            if FRIGHT_TOTAL_TIME > 0:
+                FRIGHT_TOTAL_TIME -= 1
+                if FRIGHT_TOTAL_TIME < FRIGHT_FLASH_TIME:
+                    FRIGHT_FLASH_FRAME += 1
+                    if FRIGHT_FLASH_FRAME == 28: FRIGHT_FLASH_FRAME = 0
+            else:
+                MODE = MODE_PREVIOUS
+                for i in range(len(G)):
+                    if G_STATE[i] == "FRIGHTENED": G_STATE[i] = MODE
 
 def wall_collision(row, col):
     collision = False
