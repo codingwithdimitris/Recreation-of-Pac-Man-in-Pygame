@@ -132,7 +132,6 @@ ITEM_POINTS_SPRITE = [98, 99, 100, 100, 101, 101, 102, 102, 109, 109, 115, 115]
 ITEM_POINTS_SPRITE.extend([121] * 244)
 ITEM_PELLETS1 = 70                  # show item after ITEM_PELLETS1 pellets eaten
 ITEM_PELLETS2 = 140                 # show item after ITEM_PELLETS2 pellets eaten
-ITEM_VISIBLE = False                # true when item is visible
 ITEM = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
 ITEM.x = 13 * TILE_SIZE
 ITEM.y = 20 * TILE_SIZE - HALF_TILE
@@ -322,6 +321,46 @@ def draw_maze(mode = -1):
                 if tile > 2 and tile != 27:
                     SCREEN.blit(TILES[tile + 36], (j * TILE_SIZE, i * TILE_SIZE))
 
+def eat_pellet(type = 1):
+    global MAZE, SCORE, HIGH_SCORE, LIVES, MODE
+    global PACMAN_SKIP_FRAMES, PELLETS, GAME_FLOW, ITEM_VISIBLE
+    global G_REVERSE_DIR, G_POINTS_IDX, G_STATE, G_WAS_EATEN
+    global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
+    
+    # remove pellet from the maze
+    MAZE[ROW][COL] = 0
+    
+    # normal pellet
+    if type == 1:
+        SCORE += 10
+        PACMAN_SKIP_FRAMES += 1
+    # power pellet
+    elif type == 2:
+        SCORE += 50
+        PACMAN_SKIP_FRAMES += 3
+        # set mode to frightened, prepare ghosts
+        FRIGHTENED = True
+        FRIGHT_TOTAL_TIME = FRIGHT_DURATION[LEVEL] * FPS
+        FRIGHT_FLASH_TIME = FRIGHT_FLASHES[LEVEL] * 28
+        FRIGHT_FLASH_FRAME = 0
+        G_REVERSE_DIR = [True, True, True, True]
+        G_POINTS_IDX = -1
+        for i in range(len(G)):
+            if G_STATE[i] in {"SCATTER", "CHASE"}: G_STATE[i] = "FRIGHTENED"
+            G_WAS_EATEN[i] = False
+
+    # increase pellet counter
+    PELLETS += 1
+
+    # check high score
+    if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
+
+    # if no pellets on the maze, go to the next level
+    if PELLETS == 244: GAME_FLOW = "NEXT_LEVEL"
+
+    # show bonus item if necessary
+    if PELLETS in {ITEM_PELLETS1, ITEM_PELLETS2} and not ITEM_VISIBLE: ITEM_VISIBLE = True
+
 def game_complete():
     global GAME_FLOW
 
@@ -445,15 +484,17 @@ def init_characters():
     global PACMAN_SPRITE_IDX, PACMAN_SKIP_FRAMES, PACMAN_SPEED, PACMAN_VISIBLE
     global G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY, G_ACC
     global G_FACE, G_SPRITE_IDX, G_SPEED, G_REVERSE_DIR, G_STATE
-    global G_POINTS_IMG, G_POINTS_IDX, EATEN_TIME
-    global MODE_INDEX, MODE, MODE_TIME, MODE_PREVIOUS
-    global ITEM_DISPLAY_TIME, ITEM_POINTS_TIME
+    global G_POINTS_IMG, G_POINTS_IDX, G_PAUSE_TIME, G_WAS_EATEN
+    global MODE_INDEX, MODE, MODE_TIME, FRIGHTENED
+    global ITEM_DISPLAY_TIME, ITEM_POINTS_TIME, ITEM_VISIBLE
    
     # mode
     MODE_INDEX = 0
     MODE = MODE_TABLE[MODE_INDEX]
-    MODE_PREVIOUS = None
     MODE_TIME = MODE_DURATION[LEVEL][MODE_INDEX] * FPS
+
+    # frightened
+    FRIGHTENED = False
 
     # pacman
     ROW = 26
@@ -472,20 +513,21 @@ def init_characters():
     PACMAN.y = ROW * TILE_SIZE + OFFSET_Y * SPEED_UNIT
 
     # ghosts
-    G_ROW = [14, 14, 14, 14]
-    G_COL = [13, 15, 11, 17]
+    G_ROW = [14, 17, 17, 17]
+    G_COL = [13, 13, 11, 15]
     G_OFF_X = [4, 4, 4, 4]
     G_OFF_Y = [0, 0, 0, 0]
-    G_DX = [-1, -1, 1, 1]
-    G_DY = [0, 0, 0, 0]
+    G_DX = [-1, 0, 0, 0]
+    G_DY = [0, 1, -1, -1]
     G_ACC = [0, 0, 0, 0]
-    G_FACE = [LEFT, LEFT, RIGHT, RIGHT]
+    G_FACE = [LEFT, DOWN, UP, UP]
     G_SPRITE_IDX = 0
     G_REVERSE_DIR = [False, False, False, False]
-    G_STATE = [MODE, MODE, MODE, MODE]
+    G_STATE = [MODE, "CAGED", "CAGED", "CAGED"]
+    G_WAS_EATEN = [False, False, False, False]
     G_POINTS_IMG = [None, None, None, None]
     G_POINTS_IDX = -1
-    EATEN_TIME = 0
+    G_PAUSE_TIME = 0
     G_SPEED = [G_SPEED_NORMAL[LEVEL] * MAX_SPEED] * 4
     for i in range(len(G)):
         G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
@@ -494,9 +536,11 @@ def init_characters():
     # bonus item
     ITEM_DISPLAY_TIME = int(random.uniform(9, 10) * FPS)    # number of frames that item stays on screen
     ITEM_POINTS_TIME = 2 * FPS                              # number of frames that points stays on screen (2 sec)
+    ITEM_VISIBLE = False                                    # true when item is visible
 
     # play game
-    GAME_FLOW = "GET_READY"
+    #GAME_FLOW = "GET_READY"
+    GAME_FLOW = "PLAY"
 
 def init_level():
     global GAME_FLOW, MAZE, PELLETS, ITEM_LIST
@@ -584,7 +628,7 @@ def move_ghosts():
     global PACMAN_SKIP_FRAMES, PACMAN_VISIBLE, SCORE
     global G_ACC, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY
     global G_FACE, G_SPEED, G_SPRITE_IDX, GAME_FLOW, G_STATE
-    global G_POINTS_IMG, G_POINTS_IDX, EATEN_TIME
+    global G_POINTS_IMG, G_POINTS_IDX, G_PAUSE_TIME, G_WAS_EATEN
 
     # move ghosts
     for i in range(len(G)):
@@ -605,7 +649,7 @@ def move_ghosts():
                     # reverse direction if mode has changed
                     if G_REVERSE_DIR[i]:
                         G_DX[i] = -G_DX[i]
-                        G_DY[i] = -G_DX[i]
+                        G_DY[i] = -G_DY[i]
                         G_REVERSE_DIR[i] = False
 
                     # target tile
@@ -662,7 +706,7 @@ def move_ghosts():
                         G_DY[i] = dir[1]
 
             # move ghost
-            if EATEN_TIME == 0 or G_STATE[i] in {"EYES", "ENTERING"}:
+            if G_PAUSE_TIME == 0 or G_STATE[i] in {"EYES", "ENTERING"}:
                 G_OFF_X[i] += G_DX[i]
                 G_OFF_Y[i] += G_DY[i]
                 if G_OFF_X[i] == 8:
@@ -687,12 +731,22 @@ def move_ghosts():
                 G_OFF_X[i] = 0
 
             # check other ghost states
-            if G_STATE[i] == "EYES":
+            # caged
+            if G_STATE[i] == "CAGED":
+                if G_ROW[i] == 16 and G_OFF_Y[i] == 4:
+                    G_DY[i] = -G_DY[i]
+                    G_FACE[i] = DOWN
+                elif G_ROW[i] == 17 and G_OFF_Y[i] == 4:
+                    G_DY[i] = -G_DY[i]
+                    G_FACE[i] =UP
+            # eyes
+            elif G_STATE[i] == "EYES":
                 if G_ROW[i] == 14 and G_COL[i] == 13 and G_OFF_X[i] == 4:
                     G_STATE[i] = "ENTERING"
                     G_DX[i] = 0
                     G_DY[i] = 1
                     G_FACE[i] = 11
+            # entering
             elif G_STATE[i] == "ENTERING":
                 if G_ROW[i] == 17 and G_COL[i] == 13 and G_OFF_X[i] == 4:
                     match i:
@@ -722,13 +776,13 @@ def move_ghosts():
                     G_FACE[i] = RIGHT
 
             # select animation sequence
-            if G_STATE[i] in ["SCATTER", "CHASE"]:
+            if G_STATE[i] in {"SCATTER", "CHASE"}:
                 match (G_DX[i], G_DY[i]):
                     case ( 0, -1): G_FACE[i] = UP
                     case ( 0,  1): G_FACE[i] = DOWN
                     case (-1,  0): G_FACE[i] = LEFT
                     case ( 1,  0): G_FACE[i] = RIGHT
-            elif G_STATE[i] == "FRIGHTENED":
+            elif FRIGHTENED and not G_WAS_EATEN[i] and not G_STATE[i] in {"EATEN", "EYES"}:
                 if FRIGHT_FLASH_FRAME < 14:
                     G_FACE[i] = 4
                 else:
@@ -749,6 +803,8 @@ def move_ghosts():
                 G_SPEED[i] = G_SPEED_TUNNEL[LEVEL] * MAX_SPEED
             elif G_STATE[i] == "FRIGHTENED":
                 G_SPEED[i] = G_SPEED_FRIGHT[LEVEL] * MAX_SPEED
+            elif G_STATE[i] == "CAGED":
+                G_SPEED[i] = 0.4 * MAX_SPEED
             else:
                 G_SPEED[i] = G_SPEED_NORMAL[LEVEL] * MAX_SPEED
 
@@ -762,10 +818,11 @@ def move_ghosts():
                     GAME_FLOW = "LOST_LIFE"
                 elif G_STATE[i] == "FRIGHTENED":
                     G_STATE[i] = "EATEN"
+                    G_WAS_EATEN[i] = True
                     G_POINTS_IDX += 1
                     G_POINTS_IMG[i] = 6 + G_POINTS_IDX
                     SCORE += G_POINTS[G_POINTS_IDX]
-                    EATEN_TIME = FPS
+                    G_PAUSE_TIME = FPS
                     PACMAN_SKIP_FRAMES = FPS
                     PACMAN_VISIBLE = False
 
@@ -781,8 +838,8 @@ def move_pacman():
 
     global ACC, PACMAN_SPEED, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, FACE, GAME_FLOW
     global MAZE, PELLETS, SCORE, HIGH_SCORE, PACMAN_SKIP_FRAMES, PACMAN_SPRITE_IDX, ITEM_VISIBLE
-    global MODE, MODE_PREVIOUS, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
-    global G_STATE, G_REVERSE_DIR, G_POINTS_IDX
+    global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
+    global MODE, G_STATE, G_REVERSE_DIR, G_POINTS_IDX
 
     # add pacman's speed to the fractional accumulator
     ACC += PACMAN_SPEED
@@ -834,32 +891,8 @@ def move_pacman():
             if OFFSET_X == 0 and OFFSET_Y == 0:
 
                 # eat pellet
-                if MAZE[ROW][COL] == 1:
-                    MAZE[ROW][COL] = 0
-                    SCORE += 10
-                    if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
-                    PELLETS += 1
-                    if PELLETS == 244: GAME_FLOW = "NEXT_LEVEL"
-                    if PELLETS in [ITEM_PELLETS1, ITEM_PELLETS2] and not ITEM_VISIBLE: ITEM_VISIBLE = True
-                    PACMAN_SKIP_FRAMES += 1
-                # eat power pellet
-                elif MAZE[ROW][COL] == 2:
-                    MAZE[ROW][COL] = 0
-                    SCORE += 50
-                    if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
-                    PELLETS += 1
-                    if PELLETS == 244: GAME_FLOW = "NEXT_LEVEL"
-                    if PELLETS in [ITEM_PELLETS1, ITEM_PELLETS2] and not ITEM_VISIBLE: ITEM_VISIBLE = True
-                    if MODE != "FRIGHTENED": MODE_PREVIOUS = MODE
-                    MODE = "FRIGHTENED"
-                    FRIGHT_TOTAL_TIME = FRIGHT_DURATION[LEVEL] * FPS
-                    FRIGHT_FLASH_TIME = FRIGHT_FLASHES[LEVEL] * 28
-                    FRIGHT_FLASH_FRAME = 0
-                    G_REVERSE_DIR = [True, True, True, True]
-                    G_POINTS_IDX = -1
-                    for i in range(len(G)):
-                        if G_STATE[i] in ["SCATTER", "CHASE"]: G_STATE[i] = MODE
-                    PACMAN_SKIP_FRAMES += 3
+                if MAZE[ROW][COL] in {1, 2}:
+                    eat_pellet(MAZE[ROW][COL])
 
                 # stop movement if there is a wall in front
                 if wall_collision(ROW + DY, COL + DX):
@@ -1071,9 +1104,9 @@ def type(string, row, col, color = "#dedeff"):
 def update_timers():
     global SCORE_BLINK_COUNTER, NRG_BLINK_COUNTER
     global MODE, MODE_INDEX, MODE_TIME, MODE_PREVIOUS
-    global G_STATE, G_REVERSE_DIR
-    global FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
-    global EATEN_TIME, PACMAN_VISIBLE, G_POINTS_IDX
+    global G_STATE, G_REVERSE_DIR, G_WAS_EATEN
+    global G_PAUSE_TIME, PACMAN_VISIBLE, G_POINTS_IDX
+    global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
 
     # 1up blinking
     SCORE_BLINK_COUNTER += 1
@@ -1086,12 +1119,27 @@ def update_timers():
     
     # mode
     if GAME_FLOW == "PLAY":
-        if EATEN_TIME > 0:
-            EATEN_TIME -= 1
-            if EATEN_TIME == 0:
+        # ghost pause time when eaten
+        if G_PAUSE_TIME > 0:
+            G_PAUSE_TIME -= 1
+            if G_PAUSE_TIME == 0:
                 PACMAN_VISIBLE = True
                 for i in range(len(G)):
                     if G_STATE[i] == "EATEN": G_STATE[i] = "EYES"
+        # frightened mode
+        elif FRIGHTENED:
+            if FRIGHT_TOTAL_TIME > 0:
+                FRIGHT_TOTAL_TIME -= 1
+                if FRIGHT_TOTAL_TIME < FRIGHT_FLASH_TIME:
+                    FRIGHT_FLASH_FRAME += 1
+                    if FRIGHT_FLASH_FRAME == 28: FRIGHT_FLASH_FRAME = 0
+            else:
+                FRIGHTENED = False
+                G_POINTS_IDX = -1
+                for i in range(len(G)):
+                    if G_STATE[i] == "FRIGHTENED": G_STATE[i] = MODE
+                    G_WAS_EATEN[i] = False
+        # scatter/chase mode
         elif MODE in {"SCATTER", "CHASE"}:
             if MODE_DURATION[LEVEL][MODE_INDEX] != -1:
                 MODE_TIME -= 1
@@ -1103,17 +1151,6 @@ def update_timers():
                         if G_STATE[i] in ["SCATTER", "CHASE"]:
                             G_STATE[i] = MODE
                             G_REVERSE_DIR = [True, True, True, True]
-        elif MODE == "FRIGHTENED":
-            if FRIGHT_TOTAL_TIME > 0:
-                FRIGHT_TOTAL_TIME -= 1
-                if FRIGHT_TOTAL_TIME < FRIGHT_FLASH_TIME:
-                    FRIGHT_FLASH_FRAME += 1
-                    if FRIGHT_FLASH_FRAME == 28: FRIGHT_FLASH_FRAME = 0
-            else:
-                MODE = MODE_PREVIOUS
-                G_POINTS_IDX = -1
-                for i in range(len(G)):
-                    if G_STATE[i] == "FRIGHTENED": G_STATE[i] = MODE
 
 def wall_collision(row, col):
     collision = False
