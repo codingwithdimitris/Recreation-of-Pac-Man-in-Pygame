@@ -223,6 +223,10 @@ G_SPEED_FRIGHT.extend([0.60] * 252)
 # ghost points
 G_POINTS = [200, 400, 800, 1600]
 
+# pellet counter limits for pinky, inky and clyde
+G_PELLET_COUNTER_LIMIT = [[None, 0, 30, 60], [None, 0, 0, 50]]
+G_PELLET_COUNTER_LIMIT.extend([[None, 0, 0, 0]] * 254)
+
 # mode (scatter - chase)
 MODE_TABLE = ["SCATTER", "CHASE", "SCATTER", "CHASE", "SCATTER", "CHASE", "SCATTER", "CHASE"]
 MODE_DURATION = []
@@ -324,8 +328,9 @@ def draw_maze(mode = -1):
 def eat_pellet(type = 1):
     global MAZE, SCORE, HIGH_SCORE, LIVES, MODE
     global PACMAN_SKIP_FRAMES, PELLETS, GAME_FLOW, ITEM_VISIBLE
-    global G_REVERSE_DIR, G_POINTS_IDX, G_STATE, G_WAS_EATEN
+    global G_REVERSE_DIR, G_POINTS_IDX, G_STATE, G_WAS_EATEN, G_PELLET_COUNTER
     global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
+    global PELLET_COUNTER_TYPE, GLOBAL_PELLET_COUNTER, PELLET_TIMER
     
     # remove pellet from the maze
     MAZE[ROW][COL] = 0
@@ -361,6 +366,26 @@ def eat_pellet(type = 1):
     # show bonus item if necessary
     if PELLETS in {ITEM_PELLETS1, ITEM_PELLETS2} and not ITEM_VISIBLE: ITEM_VISIBLE = True
 
+    # reset pellet timer
+    PELLET_TIMER = 0
+
+    # update pellet counters
+    if PELLET_COUNTER_TYPE == "PERSONAL":
+        exiting_index = get_exiting_index()
+        if exiting_index != -1: G_PELLET_COUNTER[exiting_index] += 1
+    elif PELLET_COUNTER_TYPE == "GLOBAL":
+        GLOBAL_PELLET_COUNTER += 1
+        match GLOBAL_PELLET_COUNTER:
+            case 7:
+                if G_STATE[1] == "CAGED": G_STATE[1] = "EXITING"
+            case 17:
+                if G_STATE[2] == "CAGED": G_STATE[2] = "EXITING"
+            case 32:
+                if G_STATE[3] == "CAGED": 
+                    G_STATE[3] = "EXITING"
+                    GLOBAL_PELLET_COUNTER = 0
+                    PELLET_COUNTER_TYPE = "PERSONAL"
+            
 def game_complete():
     global GAME_FLOW
 
@@ -401,6 +426,15 @@ def game_over():
         frame_counter += 1
 
     GAME_FLOW = "PRESS_START"
+
+def get_exiting_index():
+    global G_STATE
+    exiting_index = -1
+    for i in range(1, 4):
+        if G_STATE[i] == "CAGED":
+            exiting_index = i
+            break
+    return exiting_index
 
 def get_ready():
     global GAME_FLOW, LIVES
@@ -487,6 +521,7 @@ def init_characters():
     global G_POINTS_IMG, G_POINTS_IDX, G_PAUSE_TIME, G_WAS_EATEN
     global MODE_INDEX, MODE, MODE_TIME, FRIGHTENED
     global ITEM_DISPLAY_TIME, ITEM_POINTS_TIME, ITEM_VISIBLE
+    global GLOBAL_PELLET_COUNTER, PELLET_TIMER
    
     # mode
     MODE_INDEX = 0
@@ -538,12 +573,18 @@ def init_characters():
     ITEM_POINTS_TIME = 2 * FPS                              # number of frames that points stays on screen (2 sec)
     ITEM_VISIBLE = False                                    # true when item is visible
 
-    # play game
-    #GAME_FLOW = "GET_READY"
-    GAME_FLOW = "PLAY"
+    # global pellet counter
+    GLOBAL_PELLET_COUNTER = 0
+
+    # pellet timer
+    PELLET_TIMER = 0
+
+    # get ready scene
+    GAME_FLOW = "GET_READY"
 
 def init_level():
     global GAME_FLOW, MAZE, PELLETS, ITEM_LIST
+    global G_PELLET_COUNTER, PELLET_COUNTER_TYPE, PELLET_TIMER_LIMIT
 
     # copy data from original maze to the game's maze
     MAZE = []
@@ -559,6 +600,18 @@ def init_level():
     # item list
     ITEM_LIST = []
     for i in range(max(0, LEVEL - 6), LEVEL + 1, 1): ITEM_LIST.append(ITEMS[i])
+
+    # ghost pellet counter
+    G_PELLET_COUNTER = [None, 0, 0, 0]
+
+    # pellet counter type (personal or global)
+    PELLET_COUNTER_TYPE = "PERSONAL"
+
+    # pellet timer limits
+    if LEVEL < 5:
+        PELLET_TIMER_LIMIT = 4 * FPS    # levels 1-4, 4 seconds
+    else:
+        PELLET_TIMER_LIMIT = 3 * FPS    # levels 5+, 3 seconds
 
     # initialize characters
     GAME_FLOW = "INIT_CHARACTERS"
@@ -629,6 +682,7 @@ def move_ghosts():
     global G_ACC, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY
     global G_FACE, G_SPEED, G_SPRITE_IDX, GAME_FLOW, G_STATE
     global G_POINTS_IMG, G_POINTS_IDX, G_PAUSE_TIME, G_WAS_EATEN
+    global G_PELLET_COUNTER, PELLET_COUNTER_TYPE
 
     # move ghosts
     for i in range(len(G)):
@@ -739,6 +793,9 @@ def move_ghosts():
                 elif G_ROW[i] == 17 and G_OFF_Y[i] == 4:
                     G_DY[i] = -G_DY[i]
                     G_FACE[i] =UP
+                if PELLET_COUNTER_TYPE == "PERSONAL":
+                    if G_PELLET_COUNTER[i] == G_PELLET_COUNTER_LIMIT[LEVEL][i]:
+                        G_STATE[i] = "EXITING"
             # eyes
             elif G_STATE[i] == "EYES":
                 if G_ROW[i] == 14 and G_COL[i] == 13 and G_OFF_X[i] == 4:
@@ -750,30 +807,69 @@ def move_ghosts():
             elif G_STATE[i] == "ENTERING":
                 if G_ROW[i] == 17 and G_COL[i] == 13 and G_OFF_X[i] == 4:
                     match i:
-                        # blinky and inky
-                        case 0 | 2:
-                            G_STATE[i] = "CAGED"
+                        # make blinky look up, revive and release him
+                        case 0:
                             G_DX[i] = 0
-                            G_DY[i] = 0
+                            G_DY[i] = -1
                             G_FACE[i] = UP
-                        # pinky
+                            G_STATE[i] = "EXITING"
+                        # make pinky look up, keep him in the cage
                         case 1:
+                            G_DX[i] = 0
+                            G_DY[i] = -1
+                            G_FACE[i] = UP
+                            G_STATE[i] = "CAGED"
+                        # move inky to the left side
+                        case 2:
                             G_DX[i] = -1
                             G_DY[i] = 0
-                        # clyde
+                            G_FACE[i] = 12
+                        # move clyde to the right side
                         case 3:
                             G_DX[i] = 1
                             G_DY[i] = 0
-                if G_ROW[i] == 17 and G_COL[i] == 15 and G_OFF_X[i] == 4:
-                    G_STATE[i] = "CAGED"
+                            G_FACE[i] = 13
+                if G_ROW[i] == 17 and G_COL[i] in {11, 15} and G_OFF_X[i] == 4:
                     G_DX[i] = 0
-                    G_DY[i] = 0
-                    G_FACE[i] = LEFT
-                if G_ROW[i] == 17 and G_COL[i] == 11 and G_OFF_X[i] == 4:
+                    G_DY[i] = -1
+                    G_FACE[i] = UP
                     G_STATE[i] = "CAGED"
-                    G_DX[i] = 0
+            # exiting
+            elif G_STATE[i] == "EXITING":
+                # if ghost is on the left side of the cage, move to the center
+                if G_COL[i] == 11:
+                    G_ROW[i] = 17
+                    G_OFF_Y[i] = 0
+                    G_DX[i] = 1
                     G_DY[i] = 0
                     G_FACE[i] = RIGHT
+                # if ghost is on the right side of the cage, move to the center
+                elif G_COL[i] == 15:
+                    G_ROW[i] = 17
+                    G_OFF_Y[i] = 0
+                    G_DX[i] = -1
+                    G_DY[i] = 0
+                    G_FACE[i] = LEFT
+                # if ghost is in the center, move up
+                elif G_ROW[i] == 17 and G_COL[i] == 13 and G_OFF_X[i] == 4:
+                    G_DX[i] = 0
+                    G_DY[i] = -1
+                    G_FACE[i] = UP
+                # stop outside of the door, change state
+                elif G_ROW[i] == 14 and G_COL[i] == 13 and G_OFF_X[i] == 4 and G_OFF_Y[i] == 0:
+                    if FRIGHTENED and not G_WAS_EATEN[i]:
+                        G_STATE[i] = "FRIGHTENED"
+                    else:
+                        G_STATE[i] = MODE
+                    match G_STATE[i]:
+                        case "SCATTER":
+                            dir = pick_shortest_path(G_FIXED_TARGET[i], G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                        case "CHASE":
+                            dir = pick_shortest_path((ROW, COL), G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                        case "FRIGHTENED":
+                            dir = pick_random_path(G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                    G_DX[i] = dir[0]
+                    G_DY[i] = dir[1]
 
             # select animation sequence
             if G_STATE[i] in {"SCATTER", "CHASE"}:
@@ -816,6 +912,7 @@ def move_ghosts():
             if G[i].colliderect(PACMAN):
                 if G_STATE[i] in {"SCATTER", "CHASE"}:
                     GAME_FLOW = "LOST_LIFE"
+                    PELLET_COUNTER_TYPE = "GLOBAL"
                 elif G_STATE[i] == "FRIGHTENED":
                     G_STATE[i] = "EATEN"
                     G_WAS_EATEN[i] = True
@@ -1107,6 +1204,7 @@ def update_timers():
     global G_STATE, G_REVERSE_DIR, G_WAS_EATEN
     global G_PAUSE_TIME, PACMAN_VISIBLE, G_POINTS_IDX
     global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
+    global PELLET_TIMER
 
     # 1up blinking
     SCORE_BLINK_COUNTER += 1
@@ -1117,7 +1215,7 @@ def update_timers():
         NRG_BLINK_COUNTER += 1
         if NRG_BLINK_COUNTER == NRG_BLINK_FULL_TIME: NRG_BLINK_COUNTER = 0
     
-    # mode
+    # while playing
     if GAME_FLOW == "PLAY":
         # ghost pause time when eaten
         if G_PAUSE_TIME > 0:
@@ -1151,6 +1249,14 @@ def update_timers():
                         if G_STATE[i] in ["SCATTER", "CHASE"]:
                             G_STATE[i] = MODE
                             G_REVERSE_DIR = [True, True, True, True]
+        # pellet timer
+        if G_PAUSE_TIME == 0:
+            exiting_index = get_exiting_index()
+            if exiting_index != -1:
+                PELLET_TIMER += 1
+                if PELLET_TIMER == PELLET_TIMER_LIMIT:
+                    G_STATE[exiting_index] = "EXITING"
+                    PELLET_TIMER = 0
 
 def wall_collision(row, col):
     collision = False
