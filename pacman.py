@@ -63,6 +63,7 @@ MAX_SPEED = ORIGINAL_MAX_SPEED * ZOOM
 # tiles
 TILE_SIZE = ORIGINAL_TILE_SIZE * ZOOM
 HALF_TILE = int(TILE_SIZE // 2)
+QUARTER_TILE = int(TILE_SIZE // 4)
 DOUBLE_TILE = TILE_SIZE * 2
 TILES = []
 for i in range(72):
@@ -98,11 +99,12 @@ DEATH = 4
 
 # pacman
 PACMAN = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
+PACMAN_RECT = pygame.Rect(0, 0, HALF_TILE, HALF_TILE)
 PACMAN_ANIM = [
-    [23, 23, 23, 24, 24, 24, 2, 2, 2, 24, 24, 24],  # up
-    [31, 31, 31, 32, 32, 32, 2, 2, 2, 32, 32, 32],  # down
-    [14, 14, 14, 15, 15, 15, 2, 2, 2, 15, 15, 15],  # left
-    [0, 0, 0, 1, 1, 1, 2, 2, 2, 1, 1, 1],           # right
+    [23, 23, 24, 24, 2, 2, 24, 24],  # up
+    [31, 31, 32, 32, 2, 2, 32, 32],  # down
+    [14, 14, 15, 15, 2, 2, 15, 15],  # left
+    [0, 0, 1, 1, 2, 2, 1, 1],        # right
 ]
 death_anim = []
 for sprite in range(3, 14):
@@ -220,6 +222,22 @@ G_SPEED_TUNNEL.extend([0.50] * 252)
 G_SPEED_FRIGHT = [0.50, 0.55, 0.55, 0.55]
 G_SPEED_FRIGHT.extend([0.60] * 252)
 
+# elroy1 pellets
+G_ELROY1_PELLETS = [20, 30, 40, 40, 40, 50, 50, 50, 60, 60, 60, 80, 80, 80, 100, 100, 100, 100]
+G_ELROY1_PELLETS.extend([120] * 238)
+
+# elroy2 pellets
+G_ELROY2_PELLETS = [10, 15, 20, 20, 20, 25, 25, 25, 30, 30, 30, 40, 40, 40, 50, 50, 50, 50]
+G_ELROY2_PELLETS.extend([60] * 238)
+
+# elroy1 speed
+G_ELROY1_SPEED = [0.80, 0.90, 0.90, 0.90]
+G_ELROY1_SPEED.extend([1.00] * 252)
+
+# elroy2 speed
+G_ELROY2_SPEED = [0.85, 0.95, 0.95, 0.95]
+G_ELROY2_SPEED.extend([1.05] * 252)
+
 # ghost points
 G_POINTS = [200, 400, 800, 1600]
 
@@ -259,6 +277,7 @@ CLOCK = pygame.time.Clock()
 
 # main loop control
 RUNNING = True
+PAUSE = 0
 GAME_FLOW = "PRESS_START"
 
 ############################
@@ -282,12 +301,12 @@ def draw_bonus_items():
             SCREEN.blit(SPRITES[ITEM_LIST[item]], (col * TILE_SIZE, 34 * TILE_SIZE))
 
 def draw_ghosts():
-    for i in range(len(G)):
-        SCREEN.blit(SPRITES[G_ANIM[i][G_FACE[i]][G_SPRITE_IDX]], (G[i].x - HALF_TILE, G[i].y - HALF_TILE))
+    for i in range(4):
+        SCREEN.blit(SPRITES[G_ANIM[i][G_FACE[i]][G_SPRITE_IDX[i]]], (G[i].x - HALF_TILE, G[i].y - HALF_TILE))
 
 def draw_highscore():
-    type("HIGH SCORE", 0, 9)
-    if HIGH_SCORE > 0: type(str(HIGH_SCORE).rjust(8, " "), 1, 9)
+    type_text("HIGH SCORE", 0, 9)
+    if HIGH_SCORE > 0: type_text(str(HIGH_SCORE).rjust(8, " "), 1, 9)
 
 def draw_pacman():
     if PACMAN_VISIBLE:
@@ -302,11 +321,11 @@ def draw_remaining_lives():
 
 def draw_score():
     # draw score
-    if SCORE_BLINK_COUNTER < SCORE_BLINK_HALF_TIME: type("1UP", 0, 3)
+    if SCORE_BLINK_COUNTER < SCORE_BLINK_HALF_TIME: type_text("1UP", 0, 3)
     if SCORE == 0:
-        type("00", 1, 5)
+        type_text("00", 1, 5)
     else:
-        type(str(SCORE).rjust(7, " "), 1, 0)
+        type_text(str(SCORE).rjust(7, " "), 1, 0)
 
 def draw_maze(mode = -1):
     # mode: -1 = draw normal, 0 = draw only blue walls, 1 = draw only white walls
@@ -326,7 +345,7 @@ def draw_maze(mode = -1):
                     SCREEN.blit(TILES[tile + 36], (j * TILE_SIZE, i * TILE_SIZE))
 
 def eat_pellet(type = 1):
-    global MAZE, SCORE, HIGH_SCORE, LIVES, MODE
+    global MAZE, SCORE, HIGH_SCORE, LIVES, MODE, BONUS_LIFE_AWARDED
     global PACMAN_SKIP_FRAMES, PELLETS, GAME_FLOW, ITEM_VISIBLE
     global G_REVERSE_DIR, G_POINTS_IDX, G_STATE, G_WAS_EATEN, G_PELLET_COUNTER
     global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
@@ -350,9 +369,14 @@ def eat_pellet(type = 1):
         FRIGHT_FLASH_FRAME = 0
         G_REVERSE_DIR = [True, True, True, True]
         G_POINTS_IDX = -1
-        for i in range(len(G)):
+        for i in range(4):
             if G_STATE[i] in {"SCATTER", "CHASE"}: G_STATE[i] = "FRIGHTENED"
             G_WAS_EATEN[i] = False
+
+    # if score >= 10000, award the player with an extra life
+    if SCORE > 10000 and not BONUS_LIFE_AWARDED:
+        LIVES += 1
+        BONUS_LIFE_AWARDED = True
 
     # increase pellet counter
     PELLETS += 1
@@ -399,8 +423,8 @@ def game_complete():
         draw_highscore()
         draw_remaining_lives()
         draw_bonus_items()
-        type("GAME", 14, 12, "yellow")
-        type("COMPLETE", 20, 10, "yellow")
+        type_text("GAME", 14, 12, "yellow")
+        type_text("COMPLETE", 20, 10, "yellow")
         update_timers()
         display_current_frame()
         frame_counter += 1
@@ -410,9 +434,9 @@ def game_complete():
 def game_over():
     global GAME_FLOW
 
-    # display game over and pause for 5 seconds
+    # display game over and pause for 2 seconds
     frame_counter = 0
-    while frame_counter < 5 * FPS and GAME_FLOW == "GAME_OVER":
+    while frame_counter < 2 * FPS and GAME_FLOW == "GAME_OVER":
         poll_events()
         clear_screen()
         draw_maze()
@@ -420,11 +444,12 @@ def game_over():
         draw_highscore()
         draw_remaining_lives()
         draw_bonus_items()
-        type("GAME  OVER", 20, 9, "red")
+        type_text("GAME  OVER", 20, 9, "red")
         update_timers()
         display_current_frame()
         frame_counter += 1
 
+    SCORE_BLINK_COUNTER = 0
     GAME_FLOW = "PRESS_START"
 
 def get_exiting_index():
@@ -452,8 +477,8 @@ def get_ready():
             draw_highscore()
             draw_remaining_lives()
             draw_bonus_items()
-            type("PLAYER ONE", 14, 9, CYAN)
-            type("READY", 20, 11, "yellow")
+            type_text("PLAYER ONE", 14, 9, CYAN)
+            type_text("READY", 20, 11, "yellow")
             SCREEN.blit(SYMBOLS[4], (16 * TILE_SIZE, 20 * TILE_SIZE))
             update_timers()
             display_current_frame()
@@ -474,7 +499,7 @@ def get_ready():
         draw_highscore()
         draw_remaining_lives()
         draw_bonus_items()
-        type("READY", 20, 11, "yellow")
+        type_text("READY", 20, 11, "yellow")
         SCREEN.blit(SYMBOLS[4], (16 * TILE_SIZE, 20 * TILE_SIZE))
         update_timers()
         display_current_frame()
@@ -489,7 +514,8 @@ def handle_bonus_item():
     if ITEM_VISIBLE:
         if ITEM_DISPLAY_TIME > 0:
             SCREEN.blit(SPRITES[ITEMS[LEVEL]], (ITEM.x, ITEM.y))
-            ITEM_DISPLAY_TIME -= 1
+            if GAME_FLOW == "PLAY":
+                ITEM_DISPLAY_TIME -= 1
             if ITEM_DISPLAY_TIME == 0:
                 ITEM_DISPLAY_TIME = int(random.uniform(9, 10) * FPS)
                 ITEM_POINTS_TIME = 2 * FPS
@@ -506,7 +532,8 @@ def handle_bonus_item():
                 elif ITEM_POINTS_SPRITE[LEVEL] > 102:
                     SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL] - 1], (ITEM.x - DOUBLE_TILE, ITEM.y))
                     SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL] + 1], (ITEM.x + DOUBLE_TILE, ITEM.y))
-                ITEM_POINTS_TIME -= 1
+                if GAME_FLOW == "PLAY":
+                    ITEM_POINTS_TIME -= 1
             else:
                 ITEM_VISIBLE = False
                 ITEM_DISPLAY_TIME = int(random.uniform(9, 10) * FPS)
@@ -521,7 +548,7 @@ def init_characters():
     global G_POINTS_IMG, G_POINTS_IDX, G_PAUSE_TIME, G_WAS_EATEN
     global MODE_INDEX, MODE, MODE_TIME, FRIGHTENED
     global ITEM_DISPLAY_TIME, ITEM_POINTS_TIME, ITEM_VISIBLE
-    global GLOBAL_PELLET_COUNTER, PELLET_TIMER
+    global GLOBAL_PELLET_COUNTER, PELLET_TIMER, CRUISE_ELROY
    
     # mode
     MODE_INDEX = 0
@@ -556,7 +583,7 @@ def init_characters():
     G_DY = [0, 1, -1, -1]
     G_ACC = [0, 0, 0, 0]
     G_FACE = [LEFT, DOWN, UP, UP]
-    G_SPRITE_IDX = 0
+    G_SPRITE_IDX = [0, 0, 0, 0]
     G_REVERSE_DIR = [False, False, False, False]
     G_STATE = [MODE, "CAGED", "CAGED", "CAGED"]
     G_WAS_EATEN = [False, False, False, False]
@@ -564,7 +591,7 @@ def init_characters():
     G_POINTS_IDX = -1
     G_PAUSE_TIME = 0
     G_SPEED = [G_SPEED_NORMAL[LEVEL] * MAX_SPEED] * 4
-    for i in range(len(G)):
+    for i in range(4):
         G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
         G[i].y = G_ROW[i] * TILE_SIZE + G_OFF_Y[i] * SPEED_UNIT
 
@@ -578,6 +605,9 @@ def init_characters():
 
     # pellet timer
     PELLET_TIMER = 0
+
+    # cruise elroy (0: disables, 1: elroy1, 2: elroy2)
+    CRUISE_ELROY = 0
 
     # get ready scene
     GAME_FLOW = "GET_READY"
@@ -626,6 +656,7 @@ def lost_life():
         poll_events()
         clear_screen()
         draw_maze()
+        handle_bonus_item()
         draw_pacman()
         draw_ghosts()
         draw_score()
@@ -643,6 +674,7 @@ def lost_life():
         poll_events()
         clear_screen()
         draw_maze()
+        handle_bonus_item()
         draw_pacman()
         draw_score()
         draw_highscore()
@@ -658,6 +690,7 @@ def lost_life():
         poll_events()
         clear_screen()
         draw_maze()
+        handle_bonus_item()
         draw_score()
         draw_highscore()
         draw_remaining_lives()
@@ -682,10 +715,10 @@ def move_ghosts():
     global G_ACC, G_ROW, G_COL, G_OFF_X, G_OFF_Y, G_DX, G_DY
     global G_FACE, G_SPEED, G_SPRITE_IDX, GAME_FLOW, G_STATE
     global G_POINTS_IMG, G_POINTS_IDX, G_PAUSE_TIME, G_WAS_EATEN
-    global G_PELLET_COUNTER, PELLET_COUNTER_TYPE
+    global G_PELLET_COUNTER, PELLET_COUNTER_TYPE, CRUISE_ELROY
 
     # move ghosts
-    for i in range(len(G)):
+    for i in range(4):
 
         # add ghost's speed to the fractional accumulator
         G_ACC[i] += G_SPEED[i]
@@ -892,6 +925,11 @@ def move_ghosts():
                     case (-1,  0): G_FACE[i] = 12
                     case ( 1,  0): G_FACE[i] = 13
 
+            # animate ghost
+            if GAME_FLOW == "PLAY":
+                G_SPRITE_IDX[i] += 1
+                if G_SPRITE_IDX[i] == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX[i] = 0
+
             # adjust ghost speed
             if G_STATE[i] == "EYES":
                 G_SPEED[i] = 2 * G_SPEED_NORMAL[LEVEL] * MAX_SPEED
@@ -902,17 +940,23 @@ def move_ghosts():
             elif G_STATE[i] == "CAGED":
                 G_SPEED[i] = 0.4 * MAX_SPEED
             else:
-                G_SPEED[i] = G_SPEED_NORMAL[LEVEL] * MAX_SPEED
+                if i == 0 and CRUISE_ELROY == 1:
+                    G_SPEED[0] = G_ELROY1_SPEED[LEVEL] * MAX_SPEED
+                if i == 0 and CRUISE_ELROY == 2:
+                    G_SPEED[0] = G_ELROY2_SPEED[LEVEL] * MAX_SPEED
+                else:
+                    G_SPEED[i] = G_SPEED_NORMAL[LEVEL] * MAX_SPEED
 
             # update ghost position
             G[i].x = G_COL[i] * TILE_SIZE + G_OFF_X[i] * SPEED_UNIT
             G[i].y = G_ROW[i] * TILE_SIZE + G_OFF_Y[i] * SPEED_UNIT
 
             # collision with pacman
-            if G[i].colliderect(PACMAN):
+            if G[i].colliderect(PACMAN_RECT):
                 if G_STATE[i] in {"SCATTER", "CHASE"}:
-                    GAME_FLOW = "LOST_LIFE"
                     PELLET_COUNTER_TYPE = "GLOBAL"
+                    CRUISE_ELROY = 0
+                    GAME_FLOW = "LOST_LIFE"
                 elif G_STATE[i] == "FRIGHTENED":
                     G_STATE[i] = "EATEN"
                     G_WAS_EATEN[i] = True
@@ -926,15 +970,10 @@ def move_ghosts():
             # reduce fractional accumulator by speed unit
             G_ACC[i] -= SPEED_UNIT
 
-    # animate ghost
-    if GAME_FLOW == "PLAY":
-        G_SPRITE_IDX += 1
-        if G_SPRITE_IDX == len(G_ANIM[i][G_FACE[i]]): G_SPRITE_IDX = 0
-
 def move_pacman():
 
     global ACC, PACMAN_SPEED, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, FACE, GAME_FLOW
-    global MAZE, PELLETS, SCORE, HIGH_SCORE, PACMAN_SKIP_FRAMES, PACMAN_SPRITE_IDX, ITEM_VISIBLE
+    global MAZE, PELLETS, SCORE, HIGH_SCORE, PACMAN_SKIP_FRAMES, PACMAN_SPRITE_IDX
     global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
     global MODE, G_STATE, G_REVERSE_DIR, G_POINTS_IDX
 
@@ -1046,6 +1085,8 @@ def move_pacman():
         # update pacman's position
         PACMAN.x = COL * TILE_SIZE + OFFSET_X * SPEED_UNIT
         PACMAN.y = ROW * TILE_SIZE + OFFSET_Y * SPEED_UNIT
+        PACMAN_RECT.x = PACMAN.x + QUARTER_TILE
+        PACMAN_RECT.y = PACMAN.y + QUARTER_TILE
         
         # reduce fractional accumulator by speed unit
         ACC -= SPEED_UNIT
@@ -1138,7 +1179,7 @@ def pick_shortest_path(target, row, col, dx, dy):
             case 3: return ( 1, 0)
 
 def poll_events():
-    global RUNNING, GAME_FLOW
+    global RUNNING, GAME_FLOW, PAUSE
 
     # poll for events
     for event in pygame.event.get():
@@ -1151,26 +1192,30 @@ def poll_events():
             if event.key == pygame.K_ESCAPE:
                 RUNNING = False
                 GAME_FLOW = ""
+            # P key --> pause
+            elif event.key == pygame.K_p and GAME_FLOW == "PLAY":
+                PAUSE = 1 - PAUSE
             elif GAME_FLOW == "PRESS_START": GAME_FLOW = "NEW_GAME"
+            elif GAME_FLOW == "GAME_OVER": GAME_FLOW = "PRESS_START"
 
 def press_start():
     poll_events()
     clear_screen()
-    type("PUSH ANY KEY TO START", 16, 4, ORANGE)
-    type("1 PLAYER ONLY", 20, 8, CYAN)
-    type("BONUS PAC-MAN FOR 10000", 24, 1, PINK)
+    type_text("PUSH ANY KEY TO START", 16, 4, ORANGE)
+    type_text("1 PLAYER ONLY", 20, 8, CYAN)
+    type_text("BONUS PAC-MAN FOR 10000", 24, 1, PINK)
     # draw PTS
     for i in range(3):
         SCREEN.blit(SYMBOLS[i], ((25 + i) * TILE_SIZE, 24 * TILE_SIZE))
     # draw (C)
     SCREEN.blit(SYMBOLS[3], (4 * TILE_SIZE, 28 * TILE_SIZE))
-    type("1980 MIDWAY MFG. CO.", 28, 6, MAGENTA)
+    type_text("1980 MIDWAY MFG. CO.", 28, 6, MAGENTA)
     draw_score()
     draw_highscore()
     display_current_frame()
 
 def setup_new_game():
-    global GAME_FLOW, LEVEL, LIVES, SCORE, HIGH_SCORE
+    global GAME_FLOW, LEVEL, LIVES, SCORE, HIGH_SCORE, BONUS_LIFE_AWARDED
     global SCORE_BLINK_COUNTER, SCORE_BLINK_HALF_TIME, SCORE_BLINK_FULL_TIME
     global NRG_BLINK_COUNTER, NRG_BLINK_HALF_TIME, NRG_BLINK_FULL_TIME
 
@@ -1179,6 +1224,9 @@ def setup_new_game():
 
     # lives
     LIVES = 4
+
+    # bonus life
+    BONUS_LIFE_AWARDED = False
 
     # score
     SCORE = 0
@@ -1194,7 +1242,7 @@ def setup_new_game():
     # initialize level
     GAME_FLOW = "INIT_LEVEL"
 
-def type(string, row, col, color = "#dedeff"):
+def type_text(string, row, col, color = "#dedeff"):
     text = FONT.render(string, False, color)
     SCREEN.blit(text, (col * TILE_SIZE, row * TILE_SIZE))
 
@@ -1204,7 +1252,7 @@ def update_timers():
     global G_STATE, G_REVERSE_DIR, G_WAS_EATEN
     global G_PAUSE_TIME, PACMAN_VISIBLE, G_POINTS_IDX
     global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
-    global PELLET_TIMER
+    global PELLET_TIMER, CRUISE_ELROY
 
     # 1up blinking
     SCORE_BLINK_COUNTER += 1
@@ -1222,7 +1270,7 @@ def update_timers():
             G_PAUSE_TIME -= 1
             if G_PAUSE_TIME == 0:
                 PACMAN_VISIBLE = True
-                for i in range(len(G)):
+                for i in range(4):
                     if G_STATE[i] == "EATEN": G_STATE[i] = "EYES"
         # frightened mode
         elif FRIGHTENED:
@@ -1234,8 +1282,11 @@ def update_timers():
             else:
                 FRIGHTENED = False
                 G_POINTS_IDX = -1
-                for i in range(len(G)):
-                    if G_STATE[i] == "FRIGHTENED": G_STATE[i] = MODE
+                for i in range(4):
+                    if G_STATE[i] == "FRIGHTENED": 
+                        G_STATE[i] = MODE
+                        # if cruise elroy is enabled, set blinky's state to chase
+                        if i == 0 and CRUISE_ELROY > 0: G_STATE[0] = "CHASE"
                     G_WAS_EATEN[i] = False
         # scatter/chase mode
         elif MODE in {"SCATTER", "CHASE"}:
@@ -1245,10 +1296,14 @@ def update_timers():
                     MODE_INDEX += 1
                     MODE = MODE_TABLE[MODE_INDEX]
                     MODE_TIME = MODE_DURATION[LEVEL][MODE_INDEX] * FPS
-                    for i in range(len(G)):
+                    for i in range(4):
+                        # if cruise elroy is enabled, set blinky's state to chase
+                        if i == 0 and CRUISE_ELROY > 0: 
+                            G_STATE[0] = "CHASE"
+                            G_REVERSE_DIR[i] = True
                         if G_STATE[i] in ["SCATTER", "CHASE"]:
                             G_STATE[i] = MODE
-                            G_REVERSE_DIR = [True, True, True, True]
+                            G_REVERSE_DIR[i] = True
         # pellet timer
         if G_PAUSE_TIME == 0:
             exiting_index = get_exiting_index()
@@ -1257,6 +1312,14 @@ def update_timers():
                 if PELLET_TIMER == PELLET_TIMER_LIMIT:
                     G_STATE[exiting_index] = "EXITING"
                     PELLET_TIMER = 0
+
+        # cruise elroy
+        if PELLETS >= 244 - G_ELROY2_PELLETS[LEVEL] and G_STATE[3] in {"SCATTER", "CHASE", "FRIGHTENED"}:
+            CRUISE_ELROY = 2
+            if G_STATE[0] == "SCATTER": G_STATE[0] = "CHASE"
+        if PELLETS >= 244 - G_ELROY1_PELLETS[LEVEL] and G_STATE[3] in {"SCATTER", "CHASE", "FRIGHTENED"}:
+            CRUISE_ELROY = 1
+            if G_STATE[0] == "SCATTER": G_STATE[0] = "CHASE"
 
 def wall_collision(row, col):
     collision = False
@@ -1284,17 +1347,20 @@ def main():
             case "PLAY":
                 poll_events()
                 clear_screen()
-                move_pacman()
-                move_ghosts()
                 draw_maze()
-                handle_bonus_item()
+                if not PAUSE:
+                    handle_bonus_item()
+                    move_pacman()
+                    move_ghosts()
+                    update_timers()
+                else:
+                    type_text("PAUSE", 20, 11, "yellow")
                 draw_pacman()
                 draw_ghosts()
                 draw_score()
                 draw_highscore()
                 draw_remaining_lives()
                 draw_bonus_items()
-                update_timers()
                 display_current_frame()
             case "NEXT_LEVEL":
                 next_level()
