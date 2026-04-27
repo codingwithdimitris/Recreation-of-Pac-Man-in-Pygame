@@ -53,10 +53,11 @@ ORIGINAL_MAZE = [
 ]
 MAZE_WIDTH = len(ORIGINAL_MAZE[0])
 MAZE_HEIGHT = len(ORIGINAL_MAZE)
+TOTAL_PELLETS = 244
 
 # this game
 FPS = int(ORIGINAL_FPS)
-ZOOM = int(pygame.display.Info().current_h // (ORIGINAL_TILE_SIZE * MAZE_HEIGHT))
+ZOOM = max(1, int(pygame.display.Info().current_h // (ORIGINAL_TILE_SIZE * MAZE_HEIGHT)))
 SPEED_UNIT = ORIGINAL_SPEED_UNIT * ZOOM
 MAX_SPEED = ORIGINAL_MAX_SPEED * ZOOM
 
@@ -81,6 +82,39 @@ for i in range(5):
 
 # font
 FONT = pygame.font.Font("font/press_start_2p.ttf", TILE_SIZE)
+
+# initialize audio, check that it won't crash if there is no audio device or missing drivers
+AUDIO_ENABLED = True
+try:
+    pygame.mixer.init()
+except pygame.error as e:
+    print("Audio not enabled: ", e)
+    AUDIO_ENABLED = False
+
+# audio channels
+CH_WAKA = pygame.mixer.Channel(0)
+CH_LOOP = pygame.mixer.Channel(1)
+CH_FX1 = pygame.mixer.Channel(2)
+CH_FX2 = pygame.mixer.Channel(3)
+
+# audio volume
+for i in range(pygame.mixer.get_num_channels()):
+    pygame.mixer.Channel(i).set_volume(0.20)
+
+# audio files
+READY_TUNE = pygame.mixer.Sound("audio/ready.wav")
+WAKA = []
+for i in range(2):
+    WAKA.append(pygame.mixer.Sound("audio/waka" + str(i) + ".wav"))
+SIREN = []
+for i in range(5):
+    SIREN.append(pygame.mixer.Sound("audio/siren" + str(i) + ".wav"))
+FRIGHT_SFX = pygame.mixer.Sound("audio/frightened.wav")
+EATEN_SFX = pygame.mixer.Sound("audio/eaten.wav")
+EYES_SFX = pygame.mixer.Sound("audio/eyes.wav")
+ITEM_SFX = pygame.mixer.Sound("audio/item.wav")
+LIFE_SFX = pygame.mixer.Sound("audio/life.wav")
+DEATH_TUNE = pygame.mixer.Sound("audio/death.wav")
 
 # colors
 ORANGE = "#FFB851"
@@ -284,6 +318,45 @@ GAME_FLOW = "PRESS_START"
 # functions and procedures #
 ############################
 
+def audio_pause():
+    if not AUDIO_ENABLED: return
+    for i in range(pygame.mixer.get_num_channels()):
+        if PAUSE:
+            pygame.mixer.Channel(i).pause()
+        else:
+            pygame.mixer.Channel(i).unpause()
+
+def audio_play_fx(effect):
+    if not AUDIO_ENABLED: return
+    match effect:
+        case "ready": CH_FX1.play(READY_TUNE)
+        case "eaten": CH_FX1.play(EATEN_SFX)
+        case "item": CH_FX1.play(ITEM_SFX)
+        case "death": CH_FX1.play(DEATH_TUNE)
+        case "life": CH_FX2.play(LIFE_SFX)
+
+def audio_play_loop():
+    if not AUDIO_ENABLED: return
+
+    # count ghosts in "eyes" state
+    eyed_ghosts = 0
+    for i in range(4):
+        if G_STATE[i] == "EYES": eyed_ghosts += 1
+    
+    if eyed_ghosts > 0:
+        CH_LOOP.play(EYES_SFX, loops = -1)
+    elif FRIGHTENED:
+        CH_LOOP.play(FRIGHT_SFX, loops = -1)
+    else:
+        CH_LOOP.play(SIREN[SIREN_IDX], loops = -1)
+
+def audio_play_waka():
+    if not AUDIO_ENABLED: return
+    global WAKA_IDX
+    if not CH_WAKA.get_busy():
+        CH_WAKA.play(WAKA[WAKA_IDX])
+        WAKA_IDX = 1 - WAKA_IDX
+
 def calculate_distance(start_pos, end_pos):
     return math.sqrt((end_pos[0] - start_pos[0]) ** 2 + (end_pos[1] - start_pos[1]) ** 2)
 
@@ -346,13 +419,17 @@ def draw_maze(mode = -1):
 
 def eat_pellet(type = 1):
     global MAZE, SCORE, HIGH_SCORE, LIVES, MODE, BONUS_LIFE_AWARDED
-    global PACMAN_SKIP_FRAMES, PELLETS, GAME_FLOW, ITEM_VISIBLE
+    global PACMAN_SKIP_FRAMES, PELLETS_EATEN, GAME_FLOW, ITEM_VISIBLE
     global G_REVERSE_DIR, G_POINTS_IDX, G_STATE, G_WAS_EATEN, G_PELLET_COUNTER
     global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
     global PELLET_COUNTER_TYPE, GLOBAL_PELLET_COUNTER, PELLET_TIMER
+    global SIREN_IDX, SIREN_CURRENT
     
     # remove pellet from the maze
     MAZE[ROW][COL] = 0
+
+    # play waka-waka
+    audio_play_waka()
     
     # normal pellet
     if type == 1:
@@ -372,23 +449,27 @@ def eat_pellet(type = 1):
         for i in range(4):
             if G_STATE[i] in {"SCATTER", "CHASE"}: G_STATE[i] = "FRIGHTENED"
             G_WAS_EATEN[i] = False
+        audio_play_loop()
 
     # if score >= 10000, award the player with an extra life
     if SCORE > 10000 and not BONUS_LIFE_AWARDED:
         LIVES += 1
         BONUS_LIFE_AWARDED = True
+        audio_play_fx("life")
 
     # increase pellet counter
-    PELLETS += 1
+    PELLETS_EATEN += 1
 
     # check high score
     if SCORE >= HIGH_SCORE: HIGH_SCORE = SCORE
 
     # if no pellets on the maze, go to the next level
-    if PELLETS == 244: GAME_FLOW = "NEXT_LEVEL"
+    if PELLETS_EATEN == TOTAL_PELLETS: 
+        pygame.mixer.stop()
+        GAME_FLOW = "NEXT_LEVEL"
 
     # show bonus item if necessary
-    if PELLETS in {ITEM_PELLETS1, ITEM_PELLETS2} and not ITEM_VISIBLE: ITEM_VISIBLE = True
+    if PELLETS_EATEN in {ITEM_PELLETS1, ITEM_PELLETS2} and not ITEM_VISIBLE: ITEM_VISIBLE = True
 
     # reset pellet timer
     PELLET_TIMER = 0
@@ -409,6 +490,17 @@ def eat_pellet(type = 1):
                     G_STATE[3] = "EXITING"
                     GLOBAL_PELLET_COUNTER = 0
                     PELLET_COUNTER_TYPE = "PERSONAL"
+    
+    # adjust the pitch of the siren
+    if not FRIGHTENED:
+        if PELLETS_EATEN < 136: SIREN_IDX = 0
+        elif PELLETS_EATEN < 200: SIREN_IDX = 1
+        elif PELLETS_EATEN < 224: SIREN_IDX = 2
+        elif PELLETS_EATEN < 234: SIREN_IDX = 3
+        elif PELLETS_EATEN < TOTAL_PELLETS: SIREN_IDX = 4
+        if SIREN_IDX != SIREN_CURRENT:
+            audio_play_loop()
+            SIREN_CURRENT = SIREN_IDX
             
 def game_complete():
     global GAME_FLOW
@@ -465,7 +557,10 @@ def get_ready():
     global GAME_FLOW, LIVES
 
     # if game starts for first time
-    if LEVEL == 0 and PELLETS == 0:
+    if LEVEL == 0 and PELLETS_EATEN == 0:
+
+        # play the get ready jingle
+        audio_play_fx("ready")
 
         # wait for 2 seconds
         frame_counter = 0
@@ -505,6 +600,9 @@ def get_ready():
         display_current_frame()
         frame_counter += 1
 
+    # start the siren
+    audio_play_loop()
+
     GAME_FLOW = "PLAY"   
 
 def handle_bonus_item():
@@ -524,6 +622,7 @@ def handle_bonus_item():
             elif PACMAN.colliderect(ITEM):
                 SCORE += ITEM_POINTS[LEVEL]
                 ITEM_DISPLAY_TIME = 0
+                audio_play_fx("item")
         else:
             if ITEM_POINTS_TIME > 0:
                 SCREEN.blit(SPRITES[ITEM_POINTS_SPRITE[LEVEL]], (ITEM.x, ITEM.y))
@@ -613,8 +712,9 @@ def init_characters():
     GAME_FLOW = "GET_READY"
 
 def init_level():
-    global GAME_FLOW, MAZE, PELLETS, ITEM_LIST
+    global GAME_FLOW, MAZE, PELLETS_EATEN, ITEM_LIST
     global G_PELLET_COUNTER, PELLET_COUNTER_TYPE, PELLET_TIMER_LIMIT
+    global WAKA_IDX, SIREN_IDX, SIREN_CURRENT
 
     # copy data from original maze to the game's maze
     MAZE = []
@@ -625,7 +725,7 @@ def init_level():
         MAZE.append(temp_row)
 
     # pellets
-    PELLETS = 0
+    PELLETS_EATEN = 0
 
     # item list
     ITEM_LIST = []
@@ -642,6 +742,11 @@ def init_level():
         PELLET_TIMER_LIMIT = 4 * FPS    # levels 1-4, 4 seconds
     else:
         PELLET_TIMER_LIMIT = 3 * FPS    # levels 5+, 3 seconds
+
+    # audio indices
+    WAKA_IDX = 0
+    SIREN_IDX = 0
+    SIREN_CURRENT = 0
 
     # initialize characters
     GAME_FLOW = "INIT_CHARACTERS"
@@ -668,6 +773,7 @@ def lost_life():
         frame_counter += 1
     
     # play death sequence
+    audio_play_fx("death")
     FACE = DEATH
     PACMAN_SPRITE_IDX = 0
     while PACMAN_SPRITE_IDX < len(PACMAN_ANIM[DEATH]) and GAME_FLOW == "LOST_LIFE":
@@ -741,9 +847,9 @@ def move_ghosts():
 
                     # target tile
                     if G_STATE[i] == "SCATTER":
-                        dir = pick_shortest_path(G_FIXED_TARGET[i], G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
-                        G_DX[i] = dir[0]
-                        G_DY[i] = dir[1]
+                        next_dir = pick_shortest_path(G_FIXED_TARGET[i], G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                        G_DX[i] = next_dir[0]
+                        G_DY[i] = next_dir[1]
                     elif G_STATE[i] == "CHASE":
                         match i:
                             # blinky
@@ -777,20 +883,20 @@ def move_ghosts():
                                 else:
                                     target = G_FIXED_TARGET[3]
                         # pick shortest path
-                        dir = pick_shortest_path(target, G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
-                        G_DX[i] = dir[0]
-                        G_DY[i] = dir[1]
+                        next_dir = pick_shortest_path(target, G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                        G_DX[i] = next_dir[0]
+                        G_DY[i] = next_dir[1]
                     elif G_STATE[i] == "FRIGHTENED":
                         # pick random path
-                        dir = pick_random_path(G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
-                        G_DX[i] = dir[0]
-                        G_DY[i] = dir[1]
+                        next_dir = pick_random_path(G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                        G_DX[i] = next_dir[0]
+                        G_DY[i] = next_dir[1]
                     elif G_STATE[i] == "EYES":
                         # pick shortest path to tile (14, 13)
                         target = (14, 13)
-                        dir = pick_shortest_path(target, G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
-                        G_DX[i] = dir[0]
-                        G_DY[i] = dir[1]
+                        next_dir = pick_shortest_path(target, G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                        G_DX[i] = next_dir[0]
+                        G_DY[i] = next_dir[1]
 
             # move ghost
             if G_PAUSE_TIME == 0 or G_STATE[i] in {"EYES", "ENTERING"}:
@@ -846,12 +952,14 @@ def move_ghosts():
                             G_DY[i] = -1
                             G_FACE[i] = UP
                             G_STATE[i] = "EXITING"
+                            audio_play_loop()
                         # make pinky look up, keep him in the cage
                         case 1:
                             G_DX[i] = 0
                             G_DY[i] = -1
                             G_FACE[i] = UP
                             G_STATE[i] = "CAGED"
+                            audio_play_loop()
                         # move inky to the left side
                         case 2:
                             G_DX[i] = -1
@@ -867,6 +975,7 @@ def move_ghosts():
                     G_DY[i] = -1
                     G_FACE[i] = UP
                     G_STATE[i] = "CAGED"
+                    audio_play_loop()
             # exiting
             elif G_STATE[i] == "EXITING":
                 # if ghost is on the left side of the cage, move to the center
@@ -896,13 +1005,13 @@ def move_ghosts():
                         G_STATE[i] = MODE
                     match G_STATE[i]:
                         case "SCATTER":
-                            dir = pick_shortest_path(G_FIXED_TARGET[i], G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                            next_dir = pick_shortest_path(G_FIXED_TARGET[i], G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
                         case "CHASE":
-                            dir = pick_shortest_path((ROW, COL), G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                            next_dir = pick_shortest_path((ROW, COL), G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
                         case "FRIGHTENED":
-                            dir = pick_random_path(G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
-                    G_DX[i] = dir[0]
-                    G_DY[i] = dir[1]
+                            next_dir = pick_random_path(G_ROW[i], G_COL[i], G_DX[i], G_DY[i])
+                    G_DX[i] = next_dir[0]
+                    G_DY[i] = next_dir[1]
 
             # select animation sequence
             if G_STATE[i] in {"SCATTER", "CHASE"}:
@@ -942,7 +1051,7 @@ def move_ghosts():
             else:
                 if i == 0 and CRUISE_ELROY == 1:
                     G_SPEED[0] = G_ELROY1_SPEED[LEVEL] * MAX_SPEED
-                if i == 0 and CRUISE_ELROY == 2:
+                elif i == 0 and CRUISE_ELROY == 2:
                     G_SPEED[0] = G_ELROY2_SPEED[LEVEL] * MAX_SPEED
                 else:
                     G_SPEED[i] = G_SPEED_NORMAL[LEVEL] * MAX_SPEED
@@ -957,6 +1066,7 @@ def move_ghosts():
                     PELLET_COUNTER_TYPE = "GLOBAL"
                     CRUISE_ELROY = 0
                     GAME_FLOW = "LOST_LIFE"
+                    pygame.mixer.stop()
                 elif G_STATE[i] == "FRIGHTENED":
                     G_STATE[i] = "EATEN"
                     G_WAS_EATEN[i] = True
@@ -966,6 +1076,7 @@ def move_ghosts():
                     G_PAUSE_TIME = FPS
                     PACMAN_SKIP_FRAMES = FPS
                     PACMAN_VISIBLE = False
+                    audio_play_fx("eaten")
 
             # reduce fractional accumulator by speed unit
             G_ACC[i] -= SPEED_UNIT
@@ -973,9 +1084,7 @@ def move_ghosts():
 def move_pacman():
 
     global ACC, PACMAN_SPEED, ROW, COL, OFFSET_X, OFFSET_Y, DX, DY, FACE, GAME_FLOW
-    global MAZE, PELLETS, SCORE, HIGH_SCORE, PACMAN_SKIP_FRAMES, PACMAN_SPRITE_IDX
-    global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
-    global MODE, G_STATE, G_REVERSE_DIR, G_POINTS_IDX
+    global PACMAN_SKIP_FRAMES, PACMAN_SPRITE_IDX
 
     # add pacman's speed to the fractional accumulator
     ACC += PACMAN_SPEED
@@ -1154,7 +1263,10 @@ def pick_random_path(row, col, dx, dy):
     if not wall_collision(row, col + 1) and not dx == -1: can_turn.append((1, 0))
 
     # pick a random direction
-    return random.choice(can_turn)
+    if can_turn:
+        return random.choice(can_turn)
+    else:
+        return (-dx, -dy)
 
 def pick_shortest_path(target, row, col, dx, dy):
     # distance from each direction to the target tile (up, down,left, right)
@@ -1177,6 +1289,8 @@ def pick_shortest_path(target, row, col, dx, dy):
             case 1: return (0,  1)
             case 2: return (-1, 0)
             case 3: return ( 1, 0)
+    else:
+        return (-dx, -dy)
 
 def poll_events():
     global RUNNING, GAME_FLOW, PAUSE
@@ -1195,6 +1309,7 @@ def poll_events():
             # P key --> pause
             elif event.key == pygame.K_p and GAME_FLOW == "PLAY":
                 PAUSE = 1 - PAUSE
+                audio_pause()
             elif GAME_FLOW == "PRESS_START": GAME_FLOW = "NEW_GAME"
             elif GAME_FLOW == "GAME_OVER": GAME_FLOW = "PRESS_START"
 
@@ -1215,7 +1330,7 @@ def press_start():
     display_current_frame()
 
 def setup_new_game():
-    global GAME_FLOW, LEVEL, LIVES, SCORE, HIGH_SCORE, BONUS_LIFE_AWARDED
+    global GAME_FLOW, LEVEL, LIVES, SCORE, BONUS_LIFE_AWARDED
     global SCORE_BLINK_COUNTER, SCORE_BLINK_HALF_TIME, SCORE_BLINK_FULL_TIME
     global NRG_BLINK_COUNTER, NRG_BLINK_HALF_TIME, NRG_BLINK_FULL_TIME
 
@@ -1248,7 +1363,7 @@ def type_text(string, row, col, color = "#dedeff"):
 
 def update_timers():
     global SCORE_BLINK_COUNTER, NRG_BLINK_COUNTER
-    global MODE, MODE_INDEX, MODE_TIME, MODE_PREVIOUS
+    global MODE, MODE_INDEX, MODE_TIME
     global G_STATE, G_REVERSE_DIR, G_WAS_EATEN
     global G_PAUSE_TIME, PACMAN_VISIBLE, G_POINTS_IDX
     global FRIGHTENED, FRIGHT_TOTAL_TIME, FRIGHT_FLASH_TIME, FRIGHT_FLASH_FRAME
@@ -1271,7 +1386,9 @@ def update_timers():
             if G_PAUSE_TIME == 0:
                 PACMAN_VISIBLE = True
                 for i in range(4):
-                    if G_STATE[i] == "EATEN": G_STATE[i] = "EYES"
+                    if G_STATE[i] == "EATEN": 
+                        G_STATE[i] = "EYES"
+                        audio_play_loop()
         # frightened mode
         elif FRIGHTENED:
             if FRIGHT_TOTAL_TIME > 0:
@@ -1288,6 +1405,7 @@ def update_timers():
                         # if cruise elroy is enabled, set blinky's state to chase
                         if i == 0 and CRUISE_ELROY > 0: G_STATE[0] = "CHASE"
                     G_WAS_EATEN[i] = False
+                audio_play_loop()
         # scatter/chase mode
         elif MODE in {"SCATTER", "CHASE"}:
             if MODE_DURATION[LEVEL][MODE_INDEX] != -1:
@@ -1314,10 +1432,10 @@ def update_timers():
                     PELLET_TIMER = 0
 
         # cruise elroy
-        if PELLETS >= 244 - G_ELROY2_PELLETS[LEVEL] and G_STATE[3] in {"SCATTER", "CHASE", "FRIGHTENED"}:
+        if PELLETS_EATEN >= TOTAL_PELLETS - G_ELROY2_PELLETS[LEVEL] and G_STATE[3] in {"SCATTER", "CHASE", "FRIGHTENED"}:
             CRUISE_ELROY = 2
             if G_STATE[0] == "SCATTER": G_STATE[0] = "CHASE"
-        if PELLETS >= 244 - G_ELROY1_PELLETS[LEVEL] and G_STATE[3] in {"SCATTER", "CHASE", "FRIGHTENED"}:
+        if PELLETS_EATEN >= TOTAL_PELLETS - G_ELROY1_PELLETS[LEVEL] and G_STATE[3] in {"SCATTER", "CHASE", "FRIGHTENED"}:
             CRUISE_ELROY = 1
             if G_STATE[0] == "SCATTER": G_STATE[0] = "CHASE"
 
@@ -1354,7 +1472,7 @@ def main():
                     move_ghosts()
                     update_timers()
                 else:
-                    type_text("PAUSE", 20, 11, "yellow")
+                    type_text("PAUSED", 20, 11, "yellow")
                 draw_pacman()
                 draw_ghosts()
                 draw_score()
